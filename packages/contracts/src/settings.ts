@@ -59,6 +59,15 @@ export const GlassOpacity = Schema.Int.check(
 export type GlassOpacity = typeof GlassOpacity.Type;
 export const DEFAULT_GLASS_OPACITY: GlassOpacity = 80;
 
+export const MIN_SOUND_VOLUME = 0;
+export const MAX_SOUND_VOLUME = 100;
+export const SoundVolume = Schema.Int.check(
+  Schema.isBetween({ minimum: MIN_SOUND_VOLUME, maximum: MAX_SOUND_VOLUME }),
+);
+export type SoundVolume = typeof SoundVolume.Type;
+export const DEFAULT_SOUND_VOLUME: SoundVolume = 80;
+export const DEFAULT_SOUND_ENABLED = true;
+
 export const ClientSettingsSchema = Schema.Struct({
   autoOpenPlanSidebar: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   confirmThreadArchive: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
@@ -115,6 +124,10 @@ export const ClientSettingsSchema = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_THREAD_PREVIEW_COUNT)),
   ),
   sidebarV2Enabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
+  soundEnabled: Schema.Boolean.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_SOUND_ENABLED)),
+  ),
+  soundVolume: SoundVolume.pipe(Schema.withDecodingDefault(Effect.succeed(DEFAULT_SOUND_VOLUME))),
   timestampFormat: TimestampFormat.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_TIMESTAMP_FORMAT)),
   ),
@@ -604,6 +617,8 @@ export const ClientSettingsPatch = Schema.Struct({
   sidebarThreadSortOrder: Schema.optionalKey(SidebarThreadSortOrder),
   sidebarThreadPreviewCount: Schema.optionalKey(SidebarThreadPreviewCount),
   sidebarV2Enabled: Schema.optionalKey(Schema.Boolean),
+  soundEnabled: Schema.optionalKey(Schema.Boolean),
+  soundVolume: Schema.optionalKey(Schema.Number),
   timestampFormat: Schema.optionalKey(TimestampFormat),
   wordWrap: Schema.optionalKey(Schema.Boolean),
 });
