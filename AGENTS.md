@@ -1,5 +1,10 @@
 # AGENTS.md
 
+## Hard Rules — t3code-custom
+
+- **NEVER push or create PR to `upstream` (pingdotgg/t3code).** This is a personal fork. All pushes and PRs go to `origin` (srmdn/t3code-custom) only. Upstream is read-only for syncing.
+- Branch naming: `feat/*`, `fix/*`, `chore/*`. One branch per change. Always PR to `main` via `origin`.
+
 ## Task Completion Requirements
 
 - Keep local verification focused on the files and packages changed. Run the smallest relevant test set; do not run the full workspace test suite as a routine completion step.
