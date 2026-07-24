@@ -3,6 +3,7 @@ import type { OrchestrationLatestTurn, ScopedThreadRef } from "@t3tools/contract
 import { Atom } from "effect/unstable/reactivity";
 import { useEffect, useRef } from "react";
 import { environmentThreadDetails } from "../state/threads";
+import { usePrimarySettings } from "./useSettings";
 
 const EMPTY_LATEST_TURN_ATOM = Atom.make<OrchestrationLatestTurn | null>(null).pipe(
   Atom.withLabel("web-useAgentCompletionSound:empty"),
@@ -14,17 +15,18 @@ const FIRST_TONE_DURATION = 0.15;
 const SECOND_TONE_START = 0.12;
 const SECOND_TONE_DURATION = 0.23;
 const DECAY_DURATION = 0.4;
-const VOLUME = 0.15;
 const CLEANUP_DELAY = 500;
 
-function playCompletionChime(): void {
+function playCompletionChime(volume: number): void {
+  const normalizedVolume = Math.max(0, Math.min(1, volume / 100));
+
   try {
     const ctx = new AudioContext();
     const now = ctx.currentTime;
 
     const gain = ctx.createGain();
     gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(VOLUME, now);
+    gain.gain.setValueAtTime(normalizedVolume * VOLUME_MULTIPLIER, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + DECAY_DURATION);
 
     const firstTone = ctx.createOscillator();
@@ -49,11 +51,14 @@ function playCompletionChime(): void {
   }
 }
 
+const VOLUME_MULTIPLIER = 0.15;
+
 export function useAgentCompletionSound(ref: ScopedThreadRef | null): void {
   const latestTurn = useAtomValue(
     ref === null ? EMPTY_LATEST_TURN_ATOM : environmentThreadDetails.latestTurnAtom(ref),
   );
 
+  const settings = usePrimarySettings();
   const prevCompletedAtRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -61,10 +66,10 @@ export function useAgentCompletionSound(ref: ScopedThreadRef | null): void {
     const prevCompletedAt = prevCompletedAtRef.current;
     const justCompleted = completedAt !== null && prevCompletedAt === null;
 
-    if (justCompleted) {
-      playCompletionChime();
+    if (justCompleted && settings.soundEnabled) {
+      playCompletionChime(settings.soundVolume);
     }
 
     prevCompletedAtRef.current = completedAt;
-  }, [latestTurn?.completedAt]);
+  }, [latestTurn?.completedAt, settings.soundEnabled, settings.soundVolume]);
 }
