@@ -1,7 +1,12 @@
 import { useAtomValue } from "@effect/atom-react";
-import type { ScopedThreadRef } from "@t3tools/contracts";
+import type { OrchestrationLatestTurn, ScopedThreadRef } from "@t3tools/contracts";
+import { Atom } from "effect/unstable/reactivity";
 import { useEffect, useRef } from "react";
 import { environmentThreadDetails } from "../state/threads";
+
+const EMPTY_LATEST_TURN_ATOM = Atom.make<OrchestrationLatestTurn | null>(null).pipe(
+  Atom.withLabel("web-useAgentCompletionSound:empty"),
+);
 
 const C5_FREQUENCY = 523.25;
 const E5_FREQUENCY = 659.25;
@@ -46,7 +51,7 @@ function playCompletionChime(): void {
 
 export function useAgentCompletionSound(ref: ScopedThreadRef | null): void {
   const latestTurn = useAtomValue(
-    ref === null ? null : environmentThreadDetails.latestTurnAtom(ref),
+    ref === null ? EMPTY_LATEST_TURN_ATOM : environmentThreadDetails.latestTurnAtom(ref),
   );
 
   const prevCompletedAtRef = useRef<string | null>(null);
