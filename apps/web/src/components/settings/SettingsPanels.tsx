@@ -531,6 +531,12 @@ export function GeneralSettingsPanel() {
     "--glass-slider-progress": `${glassOpacityRatio * 100}%`,
     "--glass-slider-fill-offset": `${0.5 - glassOpacityRatio}rem`,
   } as CSSProperties;
+  const soundVolumeRatio =
+    (settings.soundVolume - MIN_SOUND_VOLUME) / (MAX_SOUND_VOLUME - MIN_SOUND_VOLUME);
+  const soundVolumeSliderStyle = {
+    "--glass-slider-progress": `${soundVolumeRatio * 100}%`,
+    "--glass-slider-fill-offset": `${0.5 - soundVolumeRatio}rem`,
+  } as CSSProperties;
   const diagnosticsDescription = formatDiagnosticsDescription({
     localTracingEnabled: observability?.localTracingEnabled ?? false,
     otlpTracesEnabled: observability?.otlpTracesEnabled ?? false,
@@ -697,6 +703,7 @@ export function GeneralSettingsPanel() {
                     }
                   }}
                   step={5}
+                  style={soundVolumeSliderStyle}
                   type="range"
                   value={settings.soundVolume}
                 />
