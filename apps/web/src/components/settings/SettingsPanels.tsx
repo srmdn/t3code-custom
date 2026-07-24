@@ -23,7 +23,9 @@ import {
 import {
   DEFAULT_UNIFIED_SETTINGS,
   MAX_GLASS_OPACITY,
+  MAX_SOUND_VOLUME,
   MIN_GLASS_OPACITY,
+  MIN_SOUND_VOLUME,
 } from "@t3tools/contracts/settings";
 import { createModelSelection } from "@t3tools/shared/model";
 import * as Arr from "effect/Array";
@@ -445,6 +447,10 @@ export function useSettingsRestore(onRestored?: () => void) {
       ...(settings.confirmThreadDelete !== DEFAULT_UNIFIED_SETTINGS.confirmThreadDelete
         ? ["Delete confirmation"]
         : []),
+      ...(settings.soundEnabled !== DEFAULT_UNIFIED_SETTINGS.soundEnabled ||
+      settings.soundVolume !== DEFAULT_UNIFIED_SETTINGS.soundVolume
+        ? ["Sound notifications"]
+        : []),
       ...(isGitWritingModelDirty ? ["Git writing model"] : []),
     ],
     [
@@ -464,6 +470,8 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.sidebarThreadPreviewCount,
       settings.timestampFormat,
       settings.wordWrap,
+      settings.soundEnabled,
+      settings.soundVolume,
       theme,
     ],
   );
@@ -495,6 +503,8 @@ export function useSettingsRestore(onRestored?: () => void) {
       addProjectBaseDirectory: DEFAULT_UNIFIED_SETTINGS.addProjectBaseDirectory,
       confirmThreadArchive: DEFAULT_UNIFIED_SETTINGS.confirmThreadArchive,
       confirmThreadDelete: DEFAULT_UNIFIED_SETTINGS.confirmThreadDelete,
+      soundEnabled: DEFAULT_UNIFIED_SETTINGS.soundEnabled,
+      soundVolume: DEFAULT_UNIFIED_SETTINGS.soundVolume,
       textGenerationModelSelection: DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,
     });
     onRestored?.();
@@ -520,6 +530,12 @@ export function GeneralSettingsPanel() {
   const glassOpacitySliderStyle = {
     "--glass-slider-progress": `${glassOpacityRatio * 100}%`,
     "--glass-slider-fill-offset": `${0.5 - glassOpacityRatio}rem`,
+  } as CSSProperties;
+  const soundVolumeRatio =
+    (settings.soundVolume - MIN_SOUND_VOLUME) / (MAX_SOUND_VOLUME - MIN_SOUND_VOLUME);
+  const soundVolumeSliderStyle = {
+    "--glass-slider-progress": `${soundVolumeRatio * 100}%`,
+    "--glass-slider-fill-offset": `${0.5 - soundVolumeRatio}rem`,
   } as CSSProperties;
   const diagnosticsDescription = formatDiagnosticsDescription({
     localTracingEnabled: observability?.localTracingEnabled ?? false,
@@ -633,6 +649,68 @@ export function GeneralSettingsPanel() {
             </div>
           }
         />
+
+        <SettingsRow
+          title="Sound notifications"
+          description="Play a sound when an agent completes a response."
+          resetAction={
+            settings.soundEnabled !== DEFAULT_UNIFIED_SETTINGS.soundEnabled ||
+            settings.soundVolume !== DEFAULT_UNIFIED_SETTINGS.soundVolume ? (
+              <SettingResetButton
+                label="sound notifications"
+                onClick={() =>
+                  updateSettings({
+                    soundEnabled: DEFAULT_UNIFIED_SETTINGS.soundEnabled,
+                    soundVolume: DEFAULT_UNIFIED_SETTINGS.soundVolume,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={settings.soundEnabled}
+              onCheckedChange={(checked) => updateSettings({ soundEnabled: Boolean(checked) })}
+            />
+          }
+        />
+
+        {settings.soundEnabled ? (
+          <SettingsRow
+            title="Notification volume"
+            control={
+              <div className="flex w-full items-center gap-3 sm:w-52">
+                <output
+                  className="min-w-12 rounded-md bg-muted px-2 py-1 text-center font-mono text-xs font-medium tabular-nums text-foreground"
+                  htmlFor="sound-volume"
+                >
+                  {settings.soundVolume}%
+                </output>
+                <input
+                  aria-label="Sound notification volume"
+                  className="glass-opacity-slider min-w-0 flex-1"
+                  id="sound-volume"
+                  max={MAX_SOUND_VOLUME}
+                  min={MIN_SOUND_VOLUME}
+                  onChange={(event) => {
+                    const volume = Number(event.currentTarget.value);
+                    if (
+                      Number.isInteger(volume) &&
+                      volume >= MIN_SOUND_VOLUME &&
+                      volume <= MAX_SOUND_VOLUME
+                    ) {
+                      updateSettings({ soundVolume: volume });
+                    }
+                  }}
+                  step={5}
+                  style={soundVolumeSliderStyle}
+                  type="range"
+                  value={settings.soundVolume}
+                />
+              </div>
+            }
+          />
+        ) : null}
 
         <SettingsRow
           title="Project Grouping"

@@ -1,4 +1,6 @@
-# T3 Code
+# T3 Code Custom
+
+> 🍴 Fork of [pingdotgg/t3code](https://github.com/pingdotgg/t3code) by [Theo](https://github.com/pingdotgg) — with personal customizations.
 
 T3 Code is a minimal web GUI for coding agents (currently Codex, Claude, Cursor, and OpenCode, more coming soon).
 
