@@ -15,7 +15,7 @@ const FIRST_TONE_DURATION = 0.15;
 const SECOND_TONE_START = 0.12;
 const SECOND_TONE_DURATION = 0.23;
 const DECAY_DURATION = 0.4;
-const CLEANUP_DELAY = 500;
+const CLEANUP_DELAY = 1000;
 
 function playCompletionChime(volume: number): void {
   const normalizedVolume = Math.max(0, Math.min(1, volume / 100));
@@ -24,10 +24,14 @@ function playCompletionChime(volume: number): void {
     const ctx = new AudioContext();
     const now = ctx.currentTime;
 
+    const toneEnd = now + SECOND_TONE_START + SECOND_TONE_DURATION;
+    const initialGain = normalizedVolume * VOLUME_MULTIPLIER;
+
     const gain = ctx.createGain();
     gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(normalizedVolume * VOLUME_MULTIPLIER, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + DECAY_DURATION);
+    gain.gain.setValueAtTime(initialGain, now);
+    gain.gain.setValueAtTime(initialGain, toneEnd);
+    gain.gain.exponentialRampToValueAtTime(0.001, toneEnd + DECAY_DURATION);
 
     const firstTone = ctx.createOscillator();
     firstTone.type = "sine";
