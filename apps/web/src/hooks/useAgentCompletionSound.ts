@@ -51,7 +51,7 @@ function playCompletionChime(volume: number): void {
   }
 }
 
-const VOLUME_MULTIPLIER = 0.6;
+const VOLUME_MULTIPLIER = 1.0;
 
 export function useAgentCompletionSound(ref: ScopedThreadRef | null): void {
   const latestTurn = useAtomValue(
