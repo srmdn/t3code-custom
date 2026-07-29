@@ -71,6 +71,16 @@ export type SoundVolume = typeof SoundVolume.Type;
 export const DEFAULT_SOUND_VOLUME: SoundVolume = 80;
 export const DEFAULT_SOUND_ENABLED = true;
 
+export const SoundPreset = Schema.Literals([
+  "classic-ding-dong",
+  "codex",
+  "hero",
+  "ping",
+  "rich-double",
+]);
+export type SoundPreset = typeof SoundPreset.Type;
+export const DEFAULT_SOUND_PRESET: SoundPreset = "codex";
+
 export const ClientSettingsSchema = Schema.Struct({
   autoOpenPlanSidebar: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   confirmThreadArchive: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
@@ -140,6 +150,7 @@ export const ClientSettingsSchema = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SOUND_ENABLED)),
   ),
   soundVolume: SoundVolume.pipe(Schema.withDecodingDefault(Effect.succeed(DEFAULT_SOUND_VOLUME))),
+  soundPreset: SoundPreset.pipe(Schema.withDecodingDefault(Effect.succeed(DEFAULT_SOUND_PRESET))),
   timestampFormat: TimestampFormat.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_TIMESTAMP_FORMAT)),
   ),
@@ -665,6 +676,7 @@ export const ClientSettingsPatch = Schema.Struct({
   sidebarV2ConfiguredByUser: Schema.optionalKey(Schema.Boolean),
   soundEnabled: Schema.optionalKey(Schema.Boolean),
   soundVolume: Schema.optionalKey(Schema.Number),
+  soundPreset: Schema.optionalKey(SoundPreset),
   timestampFormat: Schema.optionalKey(TimestampFormat),
   wordWrap: Schema.optionalKey(Schema.Boolean),
 });

@@ -1,4 +1,4 @@
-import { ArchiveIcon, ArchiveX, LoaderIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { ArchiveIcon, ArchiveX, LoaderIcon, PlayIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -22,12 +22,14 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 import {
   DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE,
+  DEFAULT_SOUND_PRESET,
   DEFAULT_UNIFIED_SETTINGS,
   type EnvironmentIdentificationMode,
   MAX_GLASS_OPACITY,
   MAX_SOUND_VOLUME,
   MIN_GLASS_OPACITY,
   MIN_SOUND_VOLUME,
+  type SoundPreset,
 } from "@t3tools/contracts/settings";
 import { createModelSelection } from "@t3tools/shared/model";
 import * as Arr from "effect/Array";
@@ -52,6 +54,7 @@ import { isElectron } from "../../env";
 import { buildHostedChannelSelectionUrl, type HostedAppChannel } from "../../hostedPairing";
 import { useTheme } from "../../hooks/useTheme";
 import { usePrimarySettings, useUpdatePrimarySettings } from "../../hooks/useSettings";
+import { previewSound } from "../../hooks/useAgentCompletionSound";
 import { useThreadActions } from "../../hooks/useThreadActions";
 import { useDesktopUpdateState } from "../../state/desktopUpdate";
 import {
@@ -127,6 +130,19 @@ const ENVIRONMENT_IDENTIFICATION_LABELS: Record<EnvironmentIdentificationMode, s
   pill: "Version pill",
   none: "None",
 };
+
+const SOUND_PRESET_LABELS: Record<SoundPreset, string> = {
+  "classic-ding-dong": "Classic Ding-Dong",
+  codex: "Codex",
+  hero: "Hero",
+  ping: "Ping",
+  "rich-double": "Rich Double",
+};
+
+const SOUND_PRESET_OPTIONS = (Object.keys(SOUND_PRESET_LABELS) as SoundPreset[]).map((value) => ({
+  value,
+  label: SOUND_PRESET_LABELS[value],
+}));
 
 const TIMESTAMP_FORMAT_LABELS = {
   locale: "System default",
@@ -464,7 +480,8 @@ export function useSettingsRestore(onRestored?: () => void) {
         ? ["Delete confirmation"]
         : []),
       ...(settings.soundEnabled !== DEFAULT_UNIFIED_SETTINGS.soundEnabled ||
-      settings.soundVolume !== DEFAULT_UNIFIED_SETTINGS.soundVolume
+      settings.soundVolume !== DEFAULT_UNIFIED_SETTINGS.soundVolume ||
+      settings.soundPreset !== DEFAULT_UNIFIED_SETTINGS.soundPreset
         ? ["Sound notifications"]
         : []),
       ...(isTextGenerationModelDirty ? ["Text generation model"] : []),
@@ -488,6 +505,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.timestampFormat,
       settings.wordWrap,
       settings.soundEnabled,
+      settings.soundPreset,
       settings.soundVolume,
       theme,
     ],
@@ -522,6 +540,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       confirmThreadArchive: DEFAULT_UNIFIED_SETTINGS.confirmThreadArchive,
       confirmThreadDelete: DEFAULT_UNIFIED_SETTINGS.confirmThreadDelete,
       soundEnabled: DEFAULT_UNIFIED_SETTINGS.soundEnabled,
+      soundPreset: DEFAULT_UNIFIED_SETTINGS.soundPreset,
       soundVolume: DEFAULT_UNIFIED_SETTINGS.soundVolume,
       textGenerationModelSelection: DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,
     });
@@ -754,12 +773,14 @@ export function GeneralSettingsPanel() {
           description="Play a sound when an agent completes a response."
           resetAction={
             settings.soundEnabled !== DEFAULT_UNIFIED_SETTINGS.soundEnabled ||
-            settings.soundVolume !== DEFAULT_UNIFIED_SETTINGS.soundVolume ? (
+            settings.soundVolume !== DEFAULT_UNIFIED_SETTINGS.soundVolume ||
+            settings.soundPreset !== DEFAULT_UNIFIED_SETTINGS.soundPreset ? (
               <SettingResetButton
                 label="sound notifications"
                 onClick={() =>
                   updateSettings({
                     soundEnabled: DEFAULT_UNIFIED_SETTINGS.soundEnabled,
+                    soundPreset: DEFAULT_UNIFIED_SETTINGS.soundPreset,
                     soundVolume: DEFAULT_UNIFIED_SETTINGS.soundVolume,
                   })
                 }
@@ -806,6 +827,63 @@ export function GeneralSettingsPanel() {
                   type="range"
                   value={settings.soundVolume}
                 />
+              </div>
+            }
+          />
+        ) : null}
+
+        {settings.soundEnabled ? (
+          <SettingsRow
+            title="Notification sound"
+            description="Choose which sound plays when an agent completes a response."
+            resetAction={
+              settings.soundPreset !== DEFAULT_SOUND_PRESET ? (
+                <SettingResetButton
+                  label="notification sound"
+                  onClick={() =>
+                    updateSettings({
+                      soundPreset: DEFAULT_SOUND_PRESET,
+                    })
+                  }
+                />
+              ) : null
+            }
+            control={
+              <div className="flex items-center gap-2">
+                <Select
+                  value={settings.soundPreset}
+                  onValueChange={(value) => {
+                    updateSettings({ soundPreset: value as SoundPreset });
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-40" aria-label="Notification sound">
+                    <SelectValue>
+                      {SOUND_PRESET_LABELS[settings.soundPreset]}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup align="end" alignItemWithTrigger={false}>
+                    {SOUND_PRESET_OPTIONS.map((option) => (
+                      <SelectItem hideIndicator key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        aria-label="Preview sound"
+                        onClick={() => previewSound(settings.soundPreset, settings.soundVolume)}
+                      >
+                        <PlayIcon className="size-3.5" />
+                      </Button>
+                    }
+                  />
+                  <TooltipPopup>Preview</TooltipPopup>
+                </Tooltip>
               </div>
             }
           />
