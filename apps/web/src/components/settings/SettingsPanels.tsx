@@ -739,6 +739,13 @@ export function GeneralSettingsPanel() {
     DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection ?? null,
   );
 
+  const soundVolumeRatio =
+    (settings.soundVolume - MIN_SOUND_VOLUME) / (MAX_SOUND_VOLUME - MIN_SOUND_VOLUME);
+  const soundVolumeSliderStyle = {
+    "--glass-slider-progress": `${soundVolumeRatio * 100}%`,
+    "--glass-slider-fill-offset": `${0.5 - soundVolumeRatio}rem`,
+  } as CSSProperties;
+
   return (
     <SettingsPageContainer>
       <SettingsSection title="General">
