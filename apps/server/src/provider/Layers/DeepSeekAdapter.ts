@@ -81,6 +81,8 @@ interface DeepSeekMessage {
 
 interface DeepSeekStreamChunk {
   readonly id?: string;
+  readonly model?: string;
+  readonly system_fingerprint?: string;
   readonly choices?: Array<{
     readonly index?: number;
     readonly delta?: {
@@ -144,6 +146,24 @@ function streamKindForChunk(
   return null;
 }
 
+export function extractResponseModel(
+  chunks: ReadonlyArray<DeepSeekStreamChunk>,
+): string | undefined {
+  for (const chunk of chunks) {
+    if (chunk.model) return chunk.model;
+  }
+  return undefined;
+}
+
+export function checkModelMismatch(
+  chunks: ReadonlyArray<DeepSeekStreamChunk>,
+  selectedModel: string,
+): string | null {
+  const responseModel = extractResponseModel(chunks);
+  if (responseModel && responseModel !== selectedModel) return responseModel;
+  return null;
+}
+
 function chunkText(chunk: DeepSeekStreamChunk): string | null {
   const delta = chunk.choices?.[0]?.delta;
   if (!delta) return null;
@@ -184,7 +204,7 @@ async function* parseSSEStream(
 
 // ── API Calls ──────────────────────────────────────────────────────────
 
-function buildRequestBody(
+export function buildRequestBody(
   model: string,
   messages: Array<DeepSeekMessage>,
   effort?: string,
@@ -513,6 +533,8 @@ export function makeDeepSeekAdapter(
           const toolCallsAcc = new Map<number, { id: string; name: string; arguments: string }>();
           let lastUsage: DeepSeekStreamChunk["usage"] | undefined;
           let didFinalize = false;
+          let responseModel: string | undefined;
+          let systemFingerprint: string | undefined;
 
           try {
             const chunks: DeepSeekStreamChunk[] = yield* Effect.tryPromise({
@@ -533,6 +555,13 @@ export function makeDeepSeekAdapter(
             });
 
             for (const chunk of chunks) {
+              if (!responseModel && chunk.model) {
+                responseModel = chunk.model;
+              }
+              if (!systemFingerprint && chunk.system_fingerprint) {
+                systemFingerprint = chunk.system_fingerprint;
+              }
+
               const deltaToolCalls = chunk.choices?.[0]?.delta?.tool_calls;
               if (deltaToolCalls) {
                 for (const tc of deltaToolCalls) {
@@ -659,6 +688,25 @@ export function makeDeepSeekAdapter(
             };
             yield* publish("thread.token-usage.updated", {
               usage: tokenUsage,
+            });
+          }
+
+          yield* Effect.logInfo("DeepSeek response metadata", {
+            provider: "deepseek",
+            requestedModel: selectedModel,
+            responseModel: responseModel ?? null,
+            effort: effort ?? null,
+            thinking: thinking ?? null,
+            fingerprint: systemFingerprint ?? null,
+          });
+
+          if (responseModel && responseModel !== selectedModel) {
+            yield* publish("runtime.warning", {
+              message: `DeepSeek API responded with model "${responseModel}" instead of requested "${selectedModel}"`,
+              detail: {
+                requestedModel: selectedModel,
+                responseModel,
+              },
             });
           }
 
