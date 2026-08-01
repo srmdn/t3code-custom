@@ -6,6 +6,16 @@ T3 Code is an "agent harness control surface". It enables control of the agents 
 
 Works with your subscriptions on Claude Code, Codex, Cursor, Grok Build, and OpenCode. If they're set up on your computer, T3 Code can control them.
 
+## Custom Features
+
+This fork includes the following additions on top of upstream:
+
+- **Sound notifications** — audible chime when an agent turn completes
+- **Volume control** — slider to adjust notification sound volume
+- **Sound preset picker** — 5 presets (Codex, Hero, Ping, Classic Ding-Dong, Rich Double) with preview button
+
+All custom features are in **Settings → Notifications**.
+
 ## "Wait, what are you selling me?"
 
 Nothing. We built T3 Code because we wanted the best possible development experience with agents. We were inspired by existing solutions like the Codex desktop app, Conductor, Claude Desktop and Cursor Glass, but none met our bar.
