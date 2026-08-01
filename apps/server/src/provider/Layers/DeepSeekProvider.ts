@@ -10,7 +10,9 @@ import * as Effect from "effect/Effect";
 import { createModelCapabilities } from "@t3tools/shared/model";
 
 import {
+  buildBooleanOptionDescriptor,
   buildServerProvider,
+  buildSelectOptionDescriptor,
   providerModelsFromSettings,
   type ServerProviderDraft,
 } from "../providerSnapshot.ts";
@@ -26,8 +28,38 @@ const DEEPSEEK_PRESENTATION = {
   requiresNewThreadForModelChange: true,
 } as const;
 
-const DEEPSEEK_MODEL_CAPABILITIES: ModelCapabilities = createModelCapabilities({
-  optionDescriptors: [],
+const DEEPSEEK_THINKING_OPTION = buildBooleanOptionDescriptor({
+  id: "thinking",
+  label: "Thinking",
+  currentValue: true,
+  description: "Enable DeepSeek thinking mode before the final answer.",
+});
+
+const DEEPSEEK_FLASH_EFFORT_OPTION = buildSelectOptionDescriptor({
+  id: "effort",
+  label: "Reasoning",
+  options: [
+    { value: "low", label: "Low" },
+    { value: "high", label: "High", isDefault: true },
+    { value: "max", label: "Max" },
+  ],
+});
+
+const DEEPSEEK_PRO_EFFORT_OPTION = buildSelectOptionDescriptor({
+  id: "effort",
+  label: "Reasoning",
+  options: [
+    { value: "high", label: "High", isDefault: true },
+    { value: "max", label: "Max" },
+  ],
+});
+
+const DEEPSEEK_FLASH_MODEL_CAPABILITIES: ModelCapabilities = createModelCapabilities({
+  optionDescriptors: [DEEPSEEK_THINKING_OPTION, DEEPSEEK_FLASH_EFFORT_OPTION],
+});
+
+const DEEPSEEK_PRO_MODEL_CAPABILITIES: ModelCapabilities = createModelCapabilities({
+  optionDescriptors: [DEEPSEEK_THINKING_OPTION, DEEPSEEK_PRO_EFFORT_OPTION],
 });
 
 const DEEPSEEK_BUILT_IN_MODELS: ReadonlyArray<ServerProviderModel> = [
@@ -35,13 +67,13 @@ const DEEPSEEK_BUILT_IN_MODELS: ReadonlyArray<ServerProviderModel> = [
     slug: "deepseek-v4-pro",
     name: "DeepSeek V4 Pro",
     isCustom: false,
-    capabilities: DEEPSEEK_MODEL_CAPABILITIES,
+    capabilities: DEEPSEEK_PRO_MODEL_CAPABILITIES,
   },
   {
     slug: "deepseek-v4-flash",
     name: "DeepSeek V4 Flash",
     isCustom: false,
-    capabilities: DEEPSEEK_MODEL_CAPABILITIES,
+    capabilities: DEEPSEEK_FLASH_MODEL_CAPABILITIES,
   },
 ];
 
@@ -49,7 +81,11 @@ function deepSeekModelsFromSettings(
   customModels: ReadonlyArray<string> | undefined,
   builtInModels: ReadonlyArray<ServerProviderModel> = DEEPSEEK_BUILT_IN_MODELS,
 ): ReadonlyArray<ServerProviderModel> {
-  return providerModelsFromSettings(builtInModels, customModels ?? [], DEEPSEEK_MODEL_CAPABILITIES);
+  return providerModelsFromSettings(
+    builtInModels,
+    customModels ?? [],
+    DEEPSEEK_FLASH_MODEL_CAPABILITIES,
+  );
 }
 
 function resolveApiKey(settings: DeepSeekSettings, environment: NodeJS.ProcessEnv): string {
