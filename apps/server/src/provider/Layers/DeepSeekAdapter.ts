@@ -2,6 +2,7 @@ import {
   ApprovalRequestId,
   type DeepSeekSettings,
   EventId,
+  type ModelSelection,
   type ProviderApprovalDecision,
   type ProviderRuntimeEvent,
   type ProviderSession,
@@ -124,6 +125,13 @@ function resolveModel(settings: DeepSeekSettings): string {
   return settings.model || "deepseek-v4-pro";
 }
 
+function resolveSelectedModel(
+  modelSelection: ModelSelection | null | undefined,
+  settings: DeepSeekSettings,
+): string {
+  return modelSelection?.model ?? resolveModel(settings);
+}
+
 function streamKindForChunk(
   chunk: DeepSeekStreamChunk,
 ): "assistant_text" | "reasoning_text" | null {
@@ -177,13 +185,13 @@ async function* parseSSEStream(
 // ── API Calls ──────────────────────────────────────────────────────────
 
 function buildRequestBody(
-  settings: DeepSeekSettings,
+  model: string,
   messages: Array<DeepSeekMessage>,
   effort?: string,
   thinking?: boolean,
 ): Record<string, unknown> {
   const body: Record<string, unknown> = {
-    model: resolveModel(settings),
+    model,
     messages,
     stream: true,
     stream_options: { include_usage: true },
@@ -355,7 +363,7 @@ export function makeDeepSeekAdapter(
           providerInstanceId: instanceId,
           status: "ready",
           runtimeMode: input.runtimeMode,
-          model: resolveModel(settings),
+          model: resolveSelectedModel(input.modelSelection, settings),
           ...(input.cwd ? { cwd: input.cwd } : {}),
           createdAt: now,
           updatedAt: now,
@@ -390,6 +398,7 @@ export function makeDeepSeekAdapter(
 
         // ── Model Options ──────────────────────────────────────────────
         const modelSelection = input.modelSelection;
+        const selectedModel = resolveSelectedModel(modelSelection, settings);
         const effort = getModelSelectionStringOptionValue(modelSelection, "effort");
         const thinking = getModelSelectionBooleanOptionValue(modelSelection, "thinking");
 
@@ -458,7 +467,7 @@ export function makeDeepSeekAdapter(
         ctx.currentTurnAbort = abortController;
 
         yield* publish("turn.started", {
-          model: resolveModel(settings),
+          model: selectedModel,
         });
         yield* publish(
           "item.started",
@@ -474,7 +483,7 @@ export function makeDeepSeekAdapter(
         yield* publish("session.state.changed", { state: "running" });
 
         try {
-          const body = buildRequestBody(settings, ctx.messages, effort, thinking);
+          const body = buildRequestBody(selectedModel, ctx.messages, effort, thinking);
           const response = yield* Effect.tryPromise({
             try: () => makeApiRequest(settings, options?.environment, body, abortController.signal),
             catch: (cause) =>
