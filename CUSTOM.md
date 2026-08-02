@@ -54,7 +54,7 @@ Plays a sound when an agent turn completes, so you can leave T3 Code in the back
 
 - **Trigger:** fires when a thread's latest turn transitions to `completedAt` (a _just completed_ edge, not on every render).
 - **Settings** (in Settings, "Sound notification"): enable toggle, volume slider (0–100, default `80`), and a preset picker with **5 presets** — `classic-ding-dong`, `codex`, `hero`, `ping`, `rich-double` — each with a **preview button** (plays without needing a completed turn).
-- **Sound assets:** bundled as static files under `apps/web/public/sounds/`.
+- **Sound assets:** bundled as static files under `apps/web/public/sounds/`, normalized to consistent loudness (peak ≈ -1 dBFS, integrated ≈ -12 LUFS, all 16-bit PCM) so every preset is clearly audible at the same slider setting.
 - **Contracts:** `soundEnabled`, `soundVolume`, `soundPreset` added to `packages/contracts/src/settings.ts` with a sensible default (`SoundPreset` default resolves to a built-in preset).
 - **Browser autoplay:** playback failures are swallowed (`Audio.play()` can be blocked by autoplay policy) — never throws into the UI.
 - **Files:** `apps/web/src/hooks/useAgentCompletionSound.ts`, `apps/web/src/components/ChatView.tsx`, `apps/web/src/components/settings/SettingsPanels.tsx`.
