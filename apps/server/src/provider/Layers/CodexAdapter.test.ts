@@ -281,6 +281,7 @@ validationLayer("CodexAdapterLive validation", (it) => {
         cwd: process.cwd(),
         launchArgs: "",
         model: "gpt-5.3-codex",
+        provider: ProviderDriverKind.make("codex"),
         providerInstanceId: ProviderInstanceId.make("codex"),
         serviceTier: "priority",
         threadId: asThreadId("thread-1"),

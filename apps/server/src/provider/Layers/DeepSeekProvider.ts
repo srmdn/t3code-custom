@@ -1,42 +1,37 @@
 import {
+  CodexSettings,
   type DeepSeekSettings,
   type ModelCapabilities,
   type ServerProvider,
   type ServerProviderModel,
+  ServerSettingsError,
 } from "@t3tools/contracts";
 import { causeErrorTag } from "@t3tools/shared/observability";
-import * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
 import { createModelCapabilities } from "@t3tools/shared/model";
+import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
+import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 
-import {
-  buildBooleanOptionDescriptor,
-  buildServerProvider,
-  buildSelectOptionDescriptor,
-  providerModelsFromSettings,
-  type ServerProviderDraft,
-} from "../providerSnapshot.ts";
 import {
   enrichProviderSnapshotWithVersionAdvisory,
   type ProviderMaintenanceCapabilities,
 } from "../providerMaintenance.ts";
+import {
+  buildSelectOptionDescriptor,
+  providerModelsFromSettings,
+  type ServerProviderDraft,
+} from "../providerSnapshot.ts";
+import { checkCodexProviderStatus, makePendingCodexProvider } from "./CodexProvider.ts";
 
 const DEEPSEEK_PRESENTATION = {
   displayName: "DeepSeek",
   badgeLabel: "API",
-  showInteractionModeToggle: false,
+  showInteractionModeToggle: true,
   requiresNewThreadForModelChange: true,
 } as const;
 
-const DEEPSEEK_THINKING_OPTION = buildBooleanOptionDescriptor({
-  id: "thinking",
-  label: "Thinking",
-  currentValue: true,
-  description: "Enable DeepSeek thinking mode before the final answer.",
-});
-
 const DEEPSEEK_FLASH_EFFORT_OPTION = buildSelectOptionDescriptor({
-  id: "effort",
+  id: "reasoningEffort",
   label: "Reasoning",
   options: [
     { value: "low", label: "Low" },
@@ -46,7 +41,7 @@ const DEEPSEEK_FLASH_EFFORT_OPTION = buildSelectOptionDescriptor({
 });
 
 const DEEPSEEK_PRO_EFFORT_OPTION = buildSelectOptionDescriptor({
-  id: "effort",
+  id: "reasoningEffort",
   label: "Reasoning",
   options: [
     { value: "high", label: "High", isDefault: true },
@@ -55,11 +50,11 @@ const DEEPSEEK_PRO_EFFORT_OPTION = buildSelectOptionDescriptor({
 });
 
 const DEEPSEEK_FLASH_MODEL_CAPABILITIES: ModelCapabilities = createModelCapabilities({
-  optionDescriptors: [DEEPSEEK_THINKING_OPTION, DEEPSEEK_FLASH_EFFORT_OPTION],
+  optionDescriptors: [DEEPSEEK_FLASH_EFFORT_OPTION],
 });
 
 const DEEPSEEK_PRO_MODEL_CAPABILITIES: ModelCapabilities = createModelCapabilities({
-  optionDescriptors: [DEEPSEEK_THINKING_OPTION, DEEPSEEK_PRO_EFFORT_OPTION],
+  optionDescriptors: [DEEPSEEK_PRO_EFFORT_OPTION],
 });
 
 const DEEPSEEK_BUILT_IN_MODELS: ReadonlyArray<ServerProviderModel> = [
@@ -88,119 +83,64 @@ function deepSeekModelsFromSettings(
   );
 }
 
-function resolveApiKey(settings: DeepSeekSettings, environment: NodeJS.ProcessEnv): string {
-  return settings.apiKey || environment.DEEPSEEK_API_KEY || "";
+/**
+ * DeepSeek runs on the Codex harness pointed at its own home directory
+ * (`~/.codex-deepseek`). Map `DeepSeekSettings` onto `CodexSettings` so the
+ * codex app-server helpers can be reused unchanged; any CodexSettings field
+ * the DeepSeek schema does not expose falls back to its schema default.
+ */
+const decodeCodexSettings = Schema.decodeSync(CodexSettings);
+
+export function deepSeekToCodexSettings(settings: DeepSeekSettings): CodexSettings {
+  return decodeCodexSettings({
+    enabled: settings.enabled,
+    binaryPath: settings.binaryPath,
+    homePath: settings.homePath,
+    customModels: settings.customModels,
+  });
+}
+
+function withDeepSeekPresentation(
+  draft: ServerProviderDraft,
+  customModels: ReadonlyArray<string> | undefined,
+): ServerProviderDraft {
+  return {
+    ...draft,
+    displayName: DEEPSEEK_PRESENTATION.displayName,
+    ...(DEEPSEEK_PRESENTATION.badgeLabel ? { badgeLabel: DEEPSEEK_PRESENTATION.badgeLabel } : {}),
+    ...(typeof DEEPSEEK_PRESENTATION.showInteractionModeToggle === "boolean"
+      ? { showInteractionModeToggle: DEEPSEEK_PRESENTATION.showInteractionModeToggle }
+      : {}),
+    ...(typeof DEEPSEEK_PRESENTATION.requiresNewThreadForModelChange === "boolean"
+      ? { requiresNewThreadForModelChange: DEEPSEEK_PRESENTATION.requiresNewThreadForModelChange }
+      : {}),
+    models: deepSeekModelsFromSettings(customModels),
+    ...(draft.message ? { message: draft.message.replaceAll("Codex", "DeepSeek") } : {}),
+  };
 }
 
 export function buildInitialDeepSeekProviderSnapshot(
   deepSeekSettings: DeepSeekSettings,
 ): Effect.Effect<ServerProviderDraft> {
-  return Effect.gen(function* () {
-    const checkedAt = yield* Effect.map(DateTime.now, DateTime.formatIso);
-    const models = deepSeekModelsFromSettings(deepSeekSettings.customModels);
-
-    if (!deepSeekSettings.enabled) {
-      return buildServerProvider({
-        presentation: DEEPSEEK_PRESENTATION,
-        enabled: false,
-        checkedAt,
-        models,
-        probe: {
-          installed: false,
-          version: null,
-          status: "warning",
-          auth: { status: "unknown" },
-          message: "DeepSeek is disabled in T3 Code settings.",
-        },
-      });
-    }
-
-    const apiKey = resolveApiKey(deepSeekSettings, process.env);
-    if (!apiKey) {
-      return buildServerProvider({
-        presentation: DEEPSEEK_PRESENTATION,
-        enabled: true,
-        checkedAt,
-        models,
-        probe: {
-          installed: true,
-          version: null,
-          status: "warning",
-          auth: { status: "unauthenticated" },
-          message:
-            "DeepSeek API key not configured. Set it in Settings or via DEEPSEEK_API_KEY env var.",
-        },
-      });
-    }
-
-    return buildServerProvider({
-      presentation: DEEPSEEK_PRESENTATION,
-      enabled: true,
-      checkedAt,
-      models,
-      probe: {
-        installed: true,
-        version: null,
-        status: "ready",
-        auth: { status: "authenticated" },
-      },
-    });
-  });
+  return Effect.map(makePendingCodexProvider(deepSeekToCodexSettings(deepSeekSettings)), (draft) =>
+    withDeepSeekPresentation(draft, deepSeekSettings.customModels),
+  );
 }
 
 export const checkDeepSeekProviderStatus = Effect.fn("checkDeepSeekProviderStatus")(function* (
   deepSeekSettings: DeepSeekSettings,
   environment: NodeJS.ProcessEnv = process.env,
-): Effect.fn.Return<ServerProviderDraft, never> {
-  const checkedAt = DateTime.formatIso(yield* DateTime.now);
-  const fallbackModels = deepSeekModelsFromSettings(deepSeekSettings.customModels);
-
-  if (!deepSeekSettings.enabled) {
-    return buildServerProvider({
-      presentation: DEEPSEEK_PRESENTATION,
-      enabled: false,
-      checkedAt,
-      models: fallbackModels,
-      probe: {
-        installed: false,
-        version: null,
-        status: "warning",
-        auth: { status: "unknown" },
-        message: "DeepSeek is disabled in T3 Code settings.",
-      },
-    });
-  }
-
-  const apiKey = resolveApiKey(deepSeekSettings, environment);
-  if (!apiKey) {
-    return buildServerProvider({
-      presentation: DEEPSEEK_PRESENTATION,
-      enabled: true,
-      checkedAt,
-      models: fallbackModels,
-      probe: {
-        installed: true,
-        version: null,
-        status: "warning",
-        auth: { status: "unauthenticated" },
-        message:
-          "DeepSeek API key not configured. Set it in Settings or via DEEPSEEK_API_KEY env var.",
-      },
-    });
-  }
-
-  return buildServerProvider({
-    presentation: DEEPSEEK_PRESENTATION,
-    enabled: deepSeekSettings.enabled,
-    checkedAt,
-    models: fallbackModels,
-    probe: {
-      installed: true,
-      version: null,
-      status: "ready",
-      auth: { status: "authenticated" },
-    },
-  });
+): Effect.fn.Return<
+  ServerProviderDraft,
+  ServerSettingsError,
+  ChildProcessSpawner.ChildProcessSpawner
+> {
+  const draft = yield* checkCodexProviderStatus(
+    deepSeekToCodexSettings(deepSeekSettings),
+    undefined,
+    environment,
+  );
+  return withDeepSeekPresentation(draft, deepSeekSettings.customModels);
 });
 
 export const enrichDeepSeekSnapshot = (input: {

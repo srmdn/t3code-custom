@@ -357,6 +357,24 @@ export const DeepSeekSettings = makeProviderSettingsSchema(
       Schema.withDecodingDefault(Effect.succeed(true)),
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
     ),
+    binaryPath: makeBinaryPathSetting("codex").pipe(
+      Schema.annotateKey({
+        title: "Binary path",
+        description: "Path to the Codex CLI binary used to run DeepSeek.",
+        providerSettingsForm: { placeholder: "codex", clearWhenEmpty: "omit" },
+      }),
+    ),
+    homePath: TrimmedString.pipe(
+      Schema.withDecodingDefault(Effect.succeed("")),
+      Schema.annotateKey({
+        title: "DeepSeek home path",
+        description: "Custom home and config directory for the DeepSeek Codex setup.",
+        providerSettingsForm: {
+          placeholder: "~/.codex-deepseek",
+          clearWhenEmpty: "omit",
+        },
+      }),
+    ),
     apiKey: TrimmedString.pipe(
       Schema.withDecodingDefault(Effect.succeed("")),
       Schema.annotateKey({
@@ -397,7 +415,7 @@ export const DeepSeekSettings = makeProviderSettingsSchema(
     ),
   },
   {
-    order: ["apiKey", "baseUrl", "model"],
+    order: ["apiKey", "baseUrl", "model", "binaryPath", "homePath"],
   },
 );
 export type DeepSeekSettings = typeof DeepSeekSettings.Type;

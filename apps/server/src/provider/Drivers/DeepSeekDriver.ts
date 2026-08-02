@@ -2,25 +2,26 @@ import { DeepSeekSettings, ProviderDriverKind, type ServerProvider } from "@t3to
 import * as Duration from "effect/Duration";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import { HttpClient } from "effect/unstable/http";
+import { ChildProcessSpawner } from "effect/unstable/process";
 
+import { makeCodexTextGeneration } from "../../textGeneration/CodexTextGeneration.ts";
 import { ServerConfig } from "../../config.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
-import { makeDeepSeekTextGeneration } from "../../textGeneration/DeepSeekTextGeneration.ts";
 import { ProviderDriverError } from "../Errors.ts";
-import { makeDeepSeekAdapter } from "../Layers/DeepSeekAdapter.ts";
+import { makeCodexAdapter } from "../Layers/CodexAdapter.ts";
 import {
   buildInitialDeepSeekProviderSnapshot,
   checkDeepSeekProviderStatus,
+  deepSeekToCodexSettings,
   enrichDeepSeekSnapshot,
 } from "../Layers/DeepSeekProvider.ts";
 import { ProviderEventLoggers } from "../Layers/ProviderEventLoggers.ts";
 import { makeManagedServerProvider } from "../makeManagedServerProvider.ts";
-import {
-  defaultProviderContinuationIdentity,
-  type ProviderDriver,
-  type ProviderInstance,
-} from "../ProviderDriver.ts";
+import type { ProviderDriver, ProviderInstance } from "../ProviderDriver.ts";
 import type { ServerProviderDraft } from "../providerSnapshot.ts";
 import { mergeProviderInstanceEnvironment } from "../ProviderInstanceEnvironment.ts";
 import {
@@ -33,11 +34,13 @@ import {
   makeProviderSnapshotSettingsSource,
   type ProviderSnapshotSettings,
 } from "../providerUpdateSettings.ts";
+import { materializeCodexShadowHome, resolveCodexHomeLayout } from "./CodexHomeLayout.ts";
 
 const decodeDeepSeekSettings = Schema.decodeSync(DeepSeekSettings);
 
 const DRIVER_KIND = ProviderDriverKind.make("deepseek");
 const SNAPSHOT_REFRESH_INTERVAL = Duration.minutes(5);
+const DEFAULT_HOME_PATH = "~/.codex-deepseek";
 const UPDATE = makeStaticProviderMaintenanceResolver(
   makeManualOnlyProviderMaintenanceCapabilities({
     provider: DRIVER_KIND,
@@ -46,7 +49,11 @@ const UPDATE = makeStaticProviderMaintenanceResolver(
 );
 
 export type DeepSeekDriverEnv =
+  | ChildProcessSpawner.ChildProcessSpawner
   | Crypto.Crypto
+  | FileSystem.FileSystem
+  | HttpClient.HttpClient
+  | Path.Path
   | ProviderEventLoggers
   | ServerConfig
   | ServerSettingsService;
@@ -77,35 +84,58 @@ export const DeepSeekDriver: ProviderDriver<DeepSeekSettings, DeepSeekDriverEnv>
   defaultConfig: (): DeepSeekSettings => decodeDeepSeekSettings({}),
   create: ({ instanceId, displayName, accentColor, environment, enabled, config }) =>
     Effect.gen(function* () {
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
       const crypto = yield* Crypto.Crypto;
       const serverSettings = yield* ServerSettingsService;
       const eventLoggers = yield* ProviderEventLoggers;
       const processEnv = mergeProviderInstanceEnvironment(environment);
-      const continuationIdentity = defaultProviderContinuationIdentity({
+      const homePath = config.homePath.trim().length > 0 ? config.homePath : DEFAULT_HOME_PATH;
+      const homeLayout = yield* resolveCodexHomeLayout(
+        deepSeekToCodexSettings({ ...config, homePath }),
+      );
+      const continuationIdentity = {
         driverKind: DRIVER_KIND,
-        instanceId,
-      });
+        continuationKey: homeLayout.continuationKey,
+      };
       const stampIdentity = withInstanceIdentity({
         instanceId,
         displayName,
         accentColor,
         continuationGroupKey: continuationIdentity.continuationKey,
       });
-      const effectiveConfig = { ...config, enabled } satisfies DeepSeekSettings;
+      yield* materializeCodexShadowHome(homeLayout).pipe(
+        Effect.mapError(
+          (cause) =>
+            new ProviderDriverError({
+              driver: DRIVER_KIND,
+              instanceId,
+              detail: cause.message,
+              cause,
+            }),
+        ),
+      );
+      const effectiveConfig = {
+        ...config,
+        enabled,
+        homePath,
+      } satisfies DeepSeekSettings;
       const maintenanceCapabilities = yield* resolveProviderMaintenanceCapabilitiesEffect(UPDATE, {
-        binaryPath: null,
+        binaryPath: effectiveConfig.binaryPath,
         env: processEnv,
       });
 
-      const adapter = yield* makeDeepSeekAdapter(effectiveConfig, {
+      const codexConfig = deepSeekToCodexSettings(effectiveConfig);
+      const adapter = yield* makeCodexAdapter(codexConfig, {
+        instanceId,
+        provider: DRIVER_KIND,
         environment: processEnv,
         ...(eventLoggers.native ? { nativeEventLogger: eventLoggers.native } : {}),
-        instanceId,
       });
-      const textGeneration = yield* makeDeepSeekTextGeneration(effectiveConfig, processEnv);
+      const textGeneration = yield* makeCodexTextGeneration(codexConfig, processEnv);
 
       const checkProvider = checkDeepSeekProviderStatus(effectiveConfig, processEnv).pipe(
         Effect.map(stampIdentity),
+        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
         Effect.provideService(Crypto.Crypto, crypto),
       );
 
