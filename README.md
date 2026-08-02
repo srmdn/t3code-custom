@@ -4,17 +4,27 @@
 
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app, [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
 
-Works with your subscriptions on Claude Code, Codex, Cursor, Grok Build, and OpenCode. If they're set up on your computer, T3 Code can control them.
+Works with your subscriptions on Claude Code, Codex, Cursor, Grok Build, and OpenCode — plus a fully agentic **DeepSeek** provider (custom fork addition). If they're set up on your computer, T3 Code can control them.
 
 ## Custom Features
 
 This fork includes the following additions on top of upstream:
 
+**Sound notifications**
+
 - **Sound notifications** — audible chime when an agent turn completes
 - **Volume control** — slider to adjust notification sound volume
 - **Sound preset picker** — 5 presets (Codex, Hero, Ping, Classic Ding-Dong, Rich Double) with preview button
 
-All custom features are in **Settings → Notifications**.
+All sound customizations live in **Settings → Notifications**.
+
+**DeepSeek provider (agentic)**
+
+- DeepSeek is a first-class provider tile: it keeps its full identity (icon, "API" badge, interaction mode toggle, `deepseek-v4-pro` / `deepseek-v4-flash` models, reasoning option) while running on the open-source **Codex CLI harness** as its engine.
+- To use it, install the [Codex CLI](https://developers.openai.com/codex/cli) and point the provider at your DeepSeek Codex home (`~/.codex-deepseek`). `deepseek-v4-flash` works end-to-end; `deepseek-v4-pro` is gated by DeepSeek's API until early August 2026.
+- Added via **Add provider → DeepSeek**, like any other provider.
+
+See [CUSTOM.md](./CUSTOM.md) for the full fork changelog, DeepSeek architecture notes, and upstream sync/confidentiality guidance.
 
 ## "Wait, what are you selling me?"
 
@@ -32,6 +42,7 @@ We wanted something performant, remote-ready, and truly open. If we ever go the 
 > - Cursor: install [Cursor CLI](https://cursor.com/cli) and run `cursor-agent login`
 > - Grok Build: install [Grok Build CLI](https://x.ai/cli) and run `grok login`
 > - OpenCode: install [OpenCode](https://opencode.ai) and run `opencode auth login`
+> - DeepSeek (custom): install [Codex CLI](https://developers.openai.com/codex/cli) and add the provider via **Add provider → DeepSeek** (engine runs on the Codex harness against `~/.codex-deepseek`)
 
 ### Try it out (install-free)
 
