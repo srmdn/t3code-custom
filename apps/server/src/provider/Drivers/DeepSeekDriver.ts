@@ -88,6 +88,7 @@ export const DeepSeekDriver: ProviderDriver<DeepSeekSettings, DeepSeekDriverEnv>
       const crypto = yield* Crypto.Crypto;
       const serverSettings = yield* ServerSettingsService;
       const eventLoggers = yield* ProviderEventLoggers;
+      const httpClient = yield* HttpClient.HttpClient;
       const processEnv = mergeProviderInstanceEnvironment(environment);
       const homePath = config.homePath.trim().length > 0 ? config.homePath : DEFAULT_HOME_PATH;
       const homeLayout = yield* resolveCodexHomeLayout(
@@ -155,6 +156,7 @@ export const DeepSeekDriver: ProviderDriver<DeepSeekSettings, DeepSeekDriverEnv>
               maintenanceCapabilities,
               enableProviderUpdateChecks: settings.enableProviderUpdateChecks,
               publishSnapshot,
+              httpClient,
             }),
           refreshInterval: SNAPSHOT_REFRESH_INTERVAL,
         },

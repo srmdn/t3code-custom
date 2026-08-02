@@ -11,6 +11,7 @@ import { createModelCapabilities } from "@t3tools/shared/model";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
+import { HttpClient } from "effect/unstable/http";
 
 import {
   enrichProviderSnapshotWithVersionAdvisory,
@@ -148,12 +149,14 @@ export const enrichDeepSeekSnapshot = (input: {
   readonly maintenanceCapabilities: ProviderMaintenanceCapabilities;
   readonly enableProviderUpdateChecks?: boolean;
   readonly publishSnapshot: (snapshot: ServerProvider) => Effect.Effect<void>;
+  readonly httpClient: HttpClient.HttpClient;
 }): Effect.Effect<void> => {
-  const { snapshot, publishSnapshot } = input;
+  const { snapshot, publishSnapshot, httpClient } = input;
 
   return enrichProviderSnapshotWithVersionAdvisory(snapshot, input.maintenanceCapabilities, {
     enableProviderUpdateChecks: input.enableProviderUpdateChecks,
   }).pipe(
+    Effect.provideService(HttpClient.HttpClient, httpClient),
     Effect.flatMap((enrichedSnapshot) => publishSnapshot(enrichedSnapshot)),
     Effect.catchCause((cause) =>
       Effect.logWarning("DeepSeek version advisory enrichment failed", {

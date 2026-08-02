@@ -380,11 +380,9 @@ export const DeepSeekSettings = makeProviderSettingsSchema(
       Schema.annotateKey({
         title: "API key",
         description:
-          "DeepSeek API key from platform.deepseek.com/api_keys. Also read from DEEPSEEK_API_KEY env var.",
+          "Configured in ~/.codex-deepseek/config.toml (or DEEPSEEK_API_KEY env var); not read by the T3 driver.",
         providerSettingsForm: {
-          control: "password",
-          placeholder: "sk-...",
-          clearWhenEmpty: "omit",
+          hidden: true,
         },
       }),
     ),
@@ -392,21 +390,16 @@ export const DeepSeekSettings = makeProviderSettingsSchema(
       Schema.withDecodingDefault(Effect.succeed("https://api.deepseek.com")),
       Schema.annotateKey({
         title: "Base URL",
-        description: "DeepSeek API base URL. Defaults to https://api.deepseek.com.",
-        providerSettingsForm: {
-          placeholder: "https://api.deepseek.com",
-          clearWhenEmpty: "omit",
-        },
+        description: "Configured in ~/.codex-deepseek/config.toml; not read by the T3 driver.",
+        providerSettingsForm: { hidden: true },
       }),
     ),
     model: TrimmedString.pipe(
-      Schema.withDecodingDefault(Effect.succeed("deepseek-v4-pro")),
+      Schema.withDecodingDefault(Effect.succeed("deepseek-v4-flash")),
       Schema.annotateKey({
         title: "Default model",
-        description: "Default model for new sessions.",
-        providerSettingsForm: {
-          placeholder: "deepseek-v4-pro",
-        },
+        description: "Configured in ~/.codex-deepseek/config.toml; not read by the T3 driver.",
+        providerSettingsForm: { hidden: true },
       }),
     ),
     customModels: Schema.Array(Schema.String).pipe(
@@ -415,7 +408,7 @@ export const DeepSeekSettings = makeProviderSettingsSchema(
     ),
   },
   {
-    order: ["apiKey", "baseUrl", "model", "binaryPath", "homePath"],
+    order: ["binaryPath", "homePath"],
   },
 );
 export type DeepSeekSettings = typeof DeepSeekSettings.Type;
@@ -657,6 +650,8 @@ const DeepSeekSettingsPatch = Schema.Struct({
   apiKey: Schema.optionalKey(TrimmedString),
   baseUrl: Schema.optionalKey(TrimmedString),
   model: Schema.optionalKey(TrimmedString),
+  binaryPath: Schema.optionalKey(TrimmedString),
+  homePath: Schema.optionalKey(TrimmedString),
   customModels: Schema.optionalKey(Schema.Array(Schema.String)),
 });
 
