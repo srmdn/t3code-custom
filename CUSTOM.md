@@ -19,7 +19,7 @@
 
 ## Customizations
 
-The fork is a small set of customizations on top of upstream: sound completion notifications and the DeepSeek provider are merged into `origin/main`, with focused fix branches in `fix/audio-*` and `fix/deepseek-provider-settings`.
+The fork is a small set of customizations on top of upstream, all merged into `origin/main`: sound completion notifications (consistent-loudness presets, per-thread completion triggering) and the DeepSeek provider on the Codex harness (honest settings form, defaulting to `deepseek-v4-flash`).
 
 ### Merged into `origin/main` — audio & repo hygiene
 
