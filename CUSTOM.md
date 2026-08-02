@@ -19,7 +19,7 @@
 
 ## Customizations
 
-The fork is **17 commits** ahead of `origin/main` (5 merged + 12 on `feat/deepseek-provider`).
+The fork is a small set of customizations on top of upstream: sound completion notifications and the DeepSeek provider are merged into `origin/main`, with focused fix branches in `fix/audio-*` and `fix/deepseek-provider-settings`.
 
 ### Merged into `origin/main` — audio & repo hygiene
 
@@ -83,6 +83,8 @@ This was a deliberate decision after researching DeepSeek's ecosystem:
 - **Provider status** is probed through the Codex app-server (`checkCodexProviderStatus`): binary present + config home valid → tile shows ready/not-ready.
 - **Reasoning options:** the tile exposes a single Reasoning option with id `reasoningEffort` (High/Max for Pro; Low/High/Max for Flash, default High). Rationale: the Codex app-server only forwards `reasoningEffort` to a turn — a boolean "Thinking" toggle would render but have no effect, so we did not ship it.
 - **External configuration lives outside the repo:** `~/.codex-deepseek/config.toml` (model, provider, auth) and `~/.codex-deepseek/models.json`. Never commit anything from that directory — it contains credentials.
+- **Settings form is honest:** the provider settings form only exposes `binaryPath` and `homePath`. The legacy `apiKey`, `baseUrl`, and `model` fields exist in the schema for backward compatibility but are hidden, because the running driver never reads them — the Codex harness reads auth and model from the home directory's `config.toml` (or `DEEPSEEK_API_KEY`).
+- **Dead code removed:** the superseded chat-only REST adapter (`DeepSeekAdapter.ts`) and its standalone text generation module were removed; the Codex harness path is the only DeepSeek runtime.
 
 ### Known notes
 

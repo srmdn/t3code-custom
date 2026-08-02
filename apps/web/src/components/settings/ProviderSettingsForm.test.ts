@@ -22,6 +22,16 @@ describe("ProviderSettingsForm helpers", () => {
     ]);
   });
 
+  it("hides DeepSeek fields that only apply to external config.toml", () => {
+    const deepseek = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("deepseek")];
+
+    expect(deepseek).toBeDefined();
+    expect(deriveProviderSettingsFields(deepseek!).map((field) => field.key)).toEqual([
+      "binaryPath",
+      "homePath",
+    ]);
+  });
+
   it("sources labels and descriptions from schema annotations", () => {
     const opencode = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("opencode")];
     expect(opencode).toBeDefined();
