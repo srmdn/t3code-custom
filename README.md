@@ -21,7 +21,7 @@ All sound customizations live in **Settings → Notifications**.
 **DeepSeek provider (agentic)**
 
 - DeepSeek is a first-class provider tile: it keeps its full identity (icon, "API" badge, interaction mode toggle, `deepseek-v4-pro` / `deepseek-v4-flash` models, reasoning option) while running on the open-source **Codex CLI harness** as its engine.
-- To use it, install the [Codex CLI](https://developers.openai.com/codex/cli) and point the provider at your DeepSeek Codex home (`~/.codex-deepseek`). `deepseek-v4-flash` works end-to-end; `deepseek-v4-pro` is gated by DeepSeek's API until early August 2026.
+- To use it, install the [Codex CLI](https://developers.openai.com/codex/cli) and point the provider at your DeepSeek Codex home (`~/.codex-deepseek`). `deepseek-v4-flash` works end-to-end and is the default; `deepseek-v4-pro` is still gated by DeepSeek's API (verified as of early August 2026) but stays selectable in the model list.
 - Added via **Add provider → DeepSeek**, like any other provider.
 
 See [CUSTOM.md](./CUSTOM.md) for the full fork changelog, DeepSeek architecture notes, and upstream sync/confidentiality guidance.

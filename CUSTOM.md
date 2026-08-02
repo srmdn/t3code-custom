@@ -89,7 +89,7 @@ This was a deliberate decision after researching DeepSeek's ecosystem:
 ### Known notes
 
 - `deepseek-v4-flash` works end-to-end (verified: agentic tool calls, checkpoints, context-window reporting).
-- `deepseek-v4-pro` is recognized by the harness, but the DeepSeek API currently gates Codex integration with it: _"will be available starting early August 2026. Please use deepseek-v4-flash instead for now."_ That is a server-side gate, not a bug in our code — the error surfaces correctly in the UI.
+- `deepseek-v4-pro` is recognized by the harness, but the DeepSeek API still gates Codex integration with it as of early August 2026 (the promised early-August availability did not open; verified by testing). The fork therefore defaults to `deepseek-v4-flash`; `pro` stays selectable in the model list, and the gate error surfaces correctly in the UI. This is a server-side gate, not a bug in our code.
 
 ### Merge risk with upstream
 

@@ -395,7 +395,7 @@ export const DeepSeekSettings = makeProviderSettingsSchema(
       }),
     ),
     model: TrimmedString.pipe(
-      Schema.withDecodingDefault(Effect.succeed("deepseek-v4-pro")),
+      Schema.withDecodingDefault(Effect.succeed("deepseek-v4-flash")),
       Schema.annotateKey({
         title: "Default model",
         description: "Configured in ~/.codex-deepseek/config.toml; not read by the T3 driver.",
