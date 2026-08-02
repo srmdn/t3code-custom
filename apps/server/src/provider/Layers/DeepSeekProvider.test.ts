@@ -1,6 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import type * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 import { describe, expect, it } from "vite-plus/test";
 import { DeepSeekSettings } from "@t3tools/contracts";
 
@@ -11,8 +12,9 @@ import {
 
 const decodeDeepSeekSettings = Schema.decodeSync(DeepSeekSettings);
 
-const runNode = <A>(effect: Effect.Effect<A>): Promise<A> =>
-  Effect.runPromise(effect.pipe(Effect.provide(NodeServices.layer)));
+const runNode = <A, E>(
+  effect: Effect.Effect<A, E, ChildProcessSpawner.ChildProcessSpawner>,
+): Promise<A> => Effect.runPromise(effect.pipe(Effect.provide(NodeServices.layer)));
 
 describe("buildInitialDeepSeekProviderSnapshot", () => {
   it("reports a disabled instance without touching the harness", async () => {
