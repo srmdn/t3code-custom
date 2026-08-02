@@ -798,6 +798,7 @@ export function GeneralSettingsPanel() {
         {settings.soundEnabled ? (
           <SettingsRow
             title="Notification volume"
+            description="How loud the notification sound plays."
             control={
               <div className="flex w-full items-center gap-3 sm:w-52">
                 <output
@@ -857,9 +858,7 @@ export function GeneralSettingsPanel() {
                   }}
                 >
                   <SelectTrigger className="w-full sm:w-40" aria-label="Notification sound">
-                    <SelectValue>
-                      {SOUND_PRESET_LABELS[settings.soundPreset]}
-                    </SelectValue>
+                    <SelectValue>{SOUND_PRESET_LABELS[settings.soundPreset]}</SelectValue>
                   </SelectTrigger>
                   <SelectPopup align="end" alignItemWithTrigger={false}>
                     {SOUND_PRESET_OPTIONS.map((option) => (
