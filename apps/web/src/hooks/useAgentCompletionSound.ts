@@ -18,6 +18,29 @@ const SOUND_URLS: Record<SoundPreset, string> = {
   "rich-double": "/sounds/rich-double.wav",
 };
 
+export interface ThreadCompletionState {
+  readonly observed: boolean;
+  readonly completedAt: string | null;
+}
+
+/**
+ * Decide whether a completion sound should play for one thread observation.
+ *
+ * The first observation of a thread only establishes a baseline, so opening
+ * an already-finished thread does not chime. Sound plays only when the same
+ * thread moves from an unfinished latest turn to a completed one.
+ */
+export function nextCompletionSoundState(
+  previous: ThreadCompletionState | undefined,
+  completedAt: string | null,
+): { readonly state: ThreadCompletionState; readonly shouldPlay: boolean } {
+  const state: ThreadCompletionState = { observed: true, completedAt };
+  if (previous === undefined) {
+    return { state, shouldPlay: false };
+  }
+  return { state, shouldPlay: previous.completedAt === null && completedAt !== null };
+}
+
 function playSound(preset: SoundPreset, volume: number): void {
   const url = SOUND_URLS[preset];
   if (!url) return;
@@ -58,17 +81,25 @@ export function useAgentCompletionSound(ref: ScopedThreadRef | null): void {
   );
 
   const settings = usePrimarySettings();
-  const prevCompletedAtRef = useRef<string | null>(null);
+  const completionStatesRef = useRef(new Map<string, ThreadCompletionState>());
+  const threadKey = ref === null ? "" : `${ref.environmentId}:${ref.threadId}`;
 
   useEffect(() => {
     const completedAt = latestTurn?.completedAt ?? null;
-    const prevCompletedAt = prevCompletedAtRef.current;
-    const justCompleted = completedAt !== null && prevCompletedAt === null;
+    const { state, shouldPlay } = nextCompletionSoundState(
+      completionStatesRef.current.get(threadKey),
+      completedAt,
+    );
+    completionStatesRef.current.set(threadKey, state);
 
-    if (justCompleted && settings.soundEnabled) {
+    if (shouldPlay && settings.soundEnabled) {
       playSound(settings.soundPreset, settings.soundVolume);
     }
-
-    prevCompletedAtRef.current = completedAt;
-  }, [latestTurn?.completedAt, settings.soundEnabled, settings.soundPreset, settings.soundVolume]);
+  }, [
+    threadKey,
+    latestTurn?.completedAt,
+    settings.soundEnabled,
+    settings.soundPreset,
+    settings.soundVolume,
+  ]);
 }

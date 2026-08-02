@@ -53,6 +53,7 @@ The fork is **17 commits** ahead of `origin/main` (5 merged + 12 on `feat/deepse
 Plays a sound when an agent turn completes, so you can leave T3 Code in the background.
 
 - **Trigger:** fires when a thread's latest turn transitions to `completedAt` (a _just completed_ edge, not on every render).
+- **Edge cases:** the first observation of a thread only establishes a baseline, so opening an already-finished thread never chimes; a turn that completes while you are on another thread chimes exactly once when you come back to it. Completion state is tracked per thread.
 - **Settings** (in Settings, "Sound notification"): enable toggle, volume slider (0–100, default `80`), and a preset picker with **5 presets** — `classic-ding-dong`, `codex`, `hero`, `ping`, `rich-double` — each with a **preview button** (plays without needing a completed turn).
 - **Sound assets:** bundled as static files under `apps/web/public/sounds/`.
 - **Contracts:** `soundEnabled`, `soundVolume`, `soundPreset` added to `packages/contracts/src/settings.ts` with a sensible default (`SoundPreset` default resolves to a built-in preset).
