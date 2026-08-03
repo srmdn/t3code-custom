@@ -70,6 +70,7 @@ export const SoundVolume = Schema.Int.check(
 export type SoundVolume = typeof SoundVolume.Type;
 export const DEFAULT_SOUND_VOLUME: SoundVolume = 80;
 export const DEFAULT_SOUND_ENABLED = true;
+export const DEFAULT_COMPLETION_NOTIFICATIONS_ENABLED = true;
 
 export const SoundPreset = Schema.Literals([
   "classic-ding-dong",
@@ -151,6 +152,9 @@ export const ClientSettingsSchema = Schema.Struct({
   ),
   soundVolume: SoundVolume.pipe(Schema.withDecodingDefault(Effect.succeed(DEFAULT_SOUND_VOLUME))),
   soundPreset: SoundPreset.pipe(Schema.withDecodingDefault(Effect.succeed(DEFAULT_SOUND_PRESET))),
+  completionNotificationsEnabled: Schema.Boolean.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_COMPLETION_NOTIFICATIONS_ENABLED)),
+  ),
   timestampFormat: TimestampFormat.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_TIMESTAMP_FORMAT)),
   ),
@@ -751,6 +755,7 @@ export const ClientSettingsPatch = Schema.Struct({
   soundEnabled: Schema.optionalKey(Schema.Boolean),
   soundVolume: Schema.optionalKey(Schema.Number),
   soundPreset: Schema.optionalKey(SoundPreset),
+  completionNotificationsEnabled: Schema.optionalKey(Schema.Boolean),
   timestampFormat: Schema.optionalKey(TimestampFormat),
   wordWrap: Schema.optionalKey(Schema.Boolean),
 });

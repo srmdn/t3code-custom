@@ -484,6 +484,10 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.soundPreset !== DEFAULT_UNIFIED_SETTINGS.soundPreset
         ? ["Sound notifications"]
         : []),
+      ...(settings.completionNotificationsEnabled !==
+      DEFAULT_UNIFIED_SETTINGS.completionNotificationsEnabled
+        ? ["System notifications"]
+        : []),
       ...(isTextGenerationModelDirty ? ["Text generation model"] : []),
     ],
     [
@@ -504,6 +508,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.sidebarThreadPreviewCount,
       settings.timestampFormat,
       settings.wordWrap,
+      settings.completionNotificationsEnabled,
       settings.soundEnabled,
       settings.soundPreset,
       settings.soundVolume,
@@ -791,6 +796,33 @@ export function GeneralSettingsPanel() {
             <Switch
               checked={settings.soundEnabled}
               onCheckedChange={(checked) => updateSettings({ soundEnabled: Boolean(checked) })}
+            />
+          }
+        />
+
+        <SettingsRow
+          title="System notifications"
+          description="Show a desktop notification when an agent completes a response while the window is not focused."
+          resetAction={
+            settings.completionNotificationsEnabled !==
+            DEFAULT_UNIFIED_SETTINGS.completionNotificationsEnabled ? (
+              <SettingResetButton
+                label="system notifications"
+                onClick={() =>
+                  updateSettings({
+                    completionNotificationsEnabled:
+                      DEFAULT_UNIFIED_SETTINGS.completionNotificationsEnabled,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={settings.completionNotificationsEnabled}
+              onCheckedChange={(checked) =>
+                updateSettings({ completionNotificationsEnabled: Boolean(checked) })
+              }
             />
           }
         />

@@ -20,6 +20,7 @@ import { SshPasswordPromptDialog } from "../components/desktop/SshPasswordPrompt
 import { ProviderUpdateLaunchNotification } from "../components/ProviderUpdateLaunchNotification";
 import { SlowRpcRequestToastCoordinator } from "../components/SlowRpcRequestToastCoordinator";
 import { Button } from "../components/ui/button";
+import { useAgentCompletionNotifications } from "../hooks/useAgentCompletionNotifications";
 import {
   AnchoredToastProvider,
   stackedThreadToast,
@@ -87,6 +88,7 @@ function RootRouteView() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const { authGateState } = Route.useRouteContext();
   const primaryEnvironmentAuthenticated = authGateState.status === "authenticated";
+  useAgentCompletionNotifications();
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
