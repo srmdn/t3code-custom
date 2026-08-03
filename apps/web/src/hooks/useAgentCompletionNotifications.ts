@@ -10,7 +10,7 @@ import { environmentThreads } from "../state/threads";
 import { playCompletionSound } from "./useAgentCompletionSound";
 import { usePrimarySettings } from "./useSettings";
 
-async function lastUserMessageText(shell: EnvironmentThreadShell): Promise<string | null> {
+async function lastThreadMessageText(shell: EnvironmentThreadShell): Promise<string | null> {
   const atom = environmentThreads.stateAtom(shell.environmentId, shell.id);
   const result = await executeAtomQuery(appAtomRegistry, atom, {
     reportDefect: false,
@@ -19,9 +19,19 @@ async function lastUserMessageText(shell: EnvironmentThreadShell): Promise<strin
   if (result._tag !== "Success") {
     return null;
   }
-  const thread = Option.getOrNull(result.value.data);
+  const state = appAtomRegistry.get(atom);
+  if (state._tag !== "Success") {
+    return null;
+  }
+  const thread = Option.getOrNull(state.value.data);
   if (thread === null) {
     return null;
+  }
+  for (let index = thread.messages.length - 1; index >= 0; index -= 1) {
+    const message = thread.messages[index];
+    if (message?.role === "assistant" && message.text.trim().length > 0) {
+      return message.text;
+    }
   }
   for (let index = thread.messages.length - 1; index >= 0; index -= 1) {
     const message = thread.messages[index];
@@ -51,9 +61,10 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | nul
 /**
  * Plays the completion sound and fires an OS notification when any thread's
  * latest turn completes. Both are driven by the same transition so they stay
- * in sync; the notification body is the thread's last user message. The first
- * observation of each thread only establishes a baseline, so opening an
- * already-finished thread does not notify.
+ * in sync; the notification body is the thread's latest message, preferring
+ * the agent's final output. The first observation of each thread only
+ * establishes a baseline, so opening an already-finished thread does not
+ * notify.
  */
 export function useAgentCompletionNotifications(): void {
   const shells = useThreadShells();
@@ -80,7 +91,7 @@ export function useAgentCompletionNotifications(): void {
         if (!settings.completionNotificationsEnabled) {
           return;
         }
-        const body = (await withTimeout(lastUserMessageText(shell), 1200)) ?? shell.title;
+        const body = (await withTimeout(lastThreadMessageText(shell), 1200)) ?? shell.title;
         try {
           await readLocalApi()?.notifications.show({
             title: "Agent finished",
