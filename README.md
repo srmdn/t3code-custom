@@ -6,6 +6,14 @@ T3 Code is an "agent harness control surface". It enables control of the agents 
 
 Works with your subscriptions on Claude Code, Codex, Cursor, Grok Build, and OpenCode — plus a fully agentic **DeepSeek** provider (custom fork addition). If they're set up on your computer, T3 Code can control them.
 
+## Screenshots
+
+| Notification settings                                                   | Files panel                                         |
+| ----------------------------------------------------------------------- | --------------------------------------------------- |
+| ![Notification settings](assets/screenshots/notification-settings.webp) | ![Files panel](assets/screenshots/files-panel.webp) |
+
+What's different in this fork? The **Custom Features** below.
+
 ## Custom Features
 
 This fork includes the following additions on top of upstream:
@@ -35,16 +43,6 @@ All sound customizations live in **Settings → Notifications**.
 - DeepSeek is a first-class provider tile: it keeps its full identity (icon, "API" badge, interaction mode toggle, `deepseek-v4-pro` / `deepseek-v4-flash` models, reasoning option) while running on the open-source **Codex CLI harness** as its engine.
 - To use it, install the [Codex CLI](https://developers.openai.com/codex/cli) and point the provider at your DeepSeek Codex home (`~/.codex-deepseek`). `deepseek-v4-flash` works end-to-end and is the default; `deepseek-v4-pro` is still gated by DeepSeek's API (verified as of early August 2026) but stays selectable in the model list.
 - Added via **Add provider → DeepSeek**, like any other provider.
-
-## Screenshots
-
-**Notification settings** — sound and system notification settings, with the test notification banner.
-
-![Notification settings](assets/screenshots/notification-settings.webp)
-
-**Files panel** — complete file browser listing dotfiles and gitignored paths, with the partial indicator.
-
-![Files panel](assets/screenshots/files-panel.webp)
 
 See [CUSTOM.md](./CUSTOM.md) for the full fork changelog, DeepSeek architecture notes, and upstream sync/confidentiality guidance.
 
