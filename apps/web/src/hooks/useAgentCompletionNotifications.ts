@@ -32,6 +32,22 @@ async function lastUserMessageText(shell: EnvironmentThreadShell): Promise<strin
   return null;
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(null);
+      },
+    );
+  });
+}
+
 /**
  * Plays the completion sound and fires an OS notification when any thread's
  * latest turn completes. Both are driven by the same transition so they stay
@@ -64,11 +80,15 @@ export function useAgentCompletionNotifications(): void {
         if (!settings.completionNotificationsEnabled) {
           return;
         }
-        const body = (await lastUserMessageText(shell)) ?? shell.title;
-        void readLocalApi()?.notifications.show({
-          title: "Agent finished",
-          body,
-        });
+        const body = (await withTimeout(lastUserMessageText(shell), 1200)) ?? shell.title;
+        try {
+          await readLocalApi()?.notifications.show({
+            title: "Agent finished",
+            body,
+          });
+        } catch (error) {
+          console.error("Failed to show completion notification", error);
+        }
       })();
     }
   }, [

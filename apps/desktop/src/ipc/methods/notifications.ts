@@ -19,6 +19,7 @@ export const showNotification = DesktopIpc.makeIpcMethod({
       body: input.body ?? "",
       silent: true,
     });
+    notification.show();
     const electronWindow = yield* ElectronWindow.ElectronWindow;
     const window = yield* electronWindow.currentMainOrFirst;
     if (Option.isSome(window)) {
@@ -27,6 +28,5 @@ export const showNotification = DesktopIpc.makeIpcMethod({
         window.value.focus();
       });
     }
-    notification.show();
   }),
 });
