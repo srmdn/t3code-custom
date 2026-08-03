@@ -770,6 +770,13 @@ export function GeneralSettingsPanel() {
     "--glass-slider-fill-offset": `${0.5 - soundVolumeRatio}rem`,
   } as CSSProperties;
 
+  const sendTestNotification = () => {
+    void readLocalApi()?.notifications.show({
+      title: "T3 Code",
+      body: "This is a test notification.",
+    });
+  };
+
   return (
     <SettingsPageContainer>
       <SettingsSection title="General">
@@ -802,7 +809,7 @@ export function GeneralSettingsPanel() {
 
         <SettingsRow
           title="System notifications"
-          description="Show a desktop notification when an agent completes a response while the window is not focused."
+          description="Show a desktop notification when an agent completes a response."
           resetAction={
             settings.completionNotificationsEnabled !==
             DEFAULT_UNIFIED_SETTINGS.completionNotificationsEnabled ? (
@@ -824,6 +831,16 @@ export function GeneralSettingsPanel() {
                 updateSettings({ completionNotificationsEnabled: Boolean(checked) })
               }
             />
+          }
+        />
+
+        <SettingsRow
+          title="Test system notification"
+          description="Send a test notification to verify macOS permission."
+          control={
+            <Button type="button" size="xs" variant="outline" onClick={sendTestNotification}>
+              Send test
+            </Button>
           }
         />
 
