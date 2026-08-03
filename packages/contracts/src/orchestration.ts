@@ -423,6 +423,7 @@ export const OrchestrationThreadShell = Schema.Struct({
   hasPendingApprovals: Schema.Boolean,
   hasPendingUserInput: Schema.Boolean,
   hasActionableProposedPlan: Schema.Boolean,
+  latestMessage: Schema.optionalKey(Schema.NullOr(TrimmedNonEmptyString)),
 });
 export type OrchestrationThreadShell = typeof OrchestrationThreadShell.Type;
 

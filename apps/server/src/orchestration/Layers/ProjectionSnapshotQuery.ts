@@ -80,6 +80,10 @@ const ProjectionThreadDbRowSchema = ProjectionThread.mapFields(
     modelSelection: Schema.fromJsonString(ModelSelection),
   }),
 );
+const ProjectionThreadWithLatestMessageDbRowSchema = Schema.Struct({
+  ...ProjectionThreadDbRowSchema.fields,
+  latestMessage: Schema.NullOr(Schema.String),
+});
 const ProjectionThreadActivityDbRowSchema = ProjectionThreadActivity.mapFields(
   Struct.assign({
     payload: Schema.fromJsonString(Schema.Unknown),
@@ -318,7 +322,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
 
   const listThreadRows = SqlSchema.findAll({
     Request: Schema.Void,
-    Result: ProjectionThreadDbRowSchema,
+    Result: ProjectionThreadWithLatestMessageDbRowSchema,
     execute: () =>
       sql`
         SELECT
@@ -342,7 +346,14 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           pending_approval_count AS "pendingApprovalCount",
           pending_user_input_count AS "pendingUserInputCount",
           has_actionable_proposed_plan AS "hasActionableProposedPlan",
-          deleted_at AS "deletedAt"
+          deleted_at AS "deletedAt",
+          (
+            SELECT text
+            FROM projection_thread_messages
+            WHERE thread_id = projection_threads.thread_id
+            ORDER BY created_at DESC, updated_at DESC, message_id DESC
+            LIMIT 1
+          ) AS "latestMessage"
         FROM projection_threads
         ORDER BY created_at ASC, thread_id ASC
       `,
@@ -350,7 +361,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
 
   const listActiveThreadRows = SqlSchema.findAll({
     Request: Schema.Void,
-    Result: ProjectionThreadDbRowSchema,
+    Result: ProjectionThreadWithLatestMessageDbRowSchema,
     execute: () =>
       sql`
         SELECT
@@ -374,7 +385,14 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           pending_approval_count AS "pendingApprovalCount",
           pending_user_input_count AS "pendingUserInputCount",
           has_actionable_proposed_plan AS "hasActionableProposedPlan",
-          deleted_at AS "deletedAt"
+          deleted_at AS "deletedAt",
+          (
+            SELECT text
+            FROM projection_thread_messages
+            WHERE thread_id = projection_threads.thread_id
+            ORDER BY created_at DESC, updated_at DESC, message_id DESC
+            LIMIT 1
+          ) AS "latestMessage"
         FROM projection_threads
         WHERE deleted_at IS NULL
           AND archived_at IS NULL
@@ -384,7 +402,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
 
   const listArchivedThreadRows = SqlSchema.findAll({
     Request: Schema.Void,
-    Result: ProjectionThreadDbRowSchema,
+    Result: ProjectionThreadWithLatestMessageDbRowSchema,
     execute: () =>
       sql`
         SELECT
@@ -408,7 +426,14 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           pending_approval_count AS "pendingApprovalCount",
           pending_user_input_count AS "pendingUserInputCount",
           has_actionable_proposed_plan AS "hasActionableProposedPlan",
-          deleted_at AS "deletedAt"
+          deleted_at AS "deletedAt",
+          (
+            SELECT text
+            FROM projection_thread_messages
+            WHERE thread_id = projection_threads.thread_id
+            ORDER BY created_at DESC, updated_at DESC, message_id DESC
+            LIMIT 1
+          ) AS "latestMessage"
         FROM projection_threads
         WHERE deleted_at IS NULL
           AND archived_at IS NOT NULL
@@ -750,7 +775,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
 
   const getActiveThreadRowById = SqlSchema.findOneOption({
     Request: ThreadIdLookupInput,
-    Result: ProjectionThreadDbRowSchema,
+    Result: ProjectionThreadWithLatestMessageDbRowSchema,
     execute: ({ threadId }) =>
       sql`
         SELECT
@@ -774,7 +799,14 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           pending_approval_count AS "pendingApprovalCount",
           pending_user_input_count AS "pendingUserInputCount",
           has_actionable_proposed_plan AS "hasActionableProposedPlan",
-          deleted_at AS "deletedAt"
+          deleted_at AS "deletedAt",
+          (
+            SELECT text
+            FROM projection_thread_messages
+            WHERE thread_id = projection_threads.thread_id
+            ORDER BY created_at DESC, updated_at DESC, message_id DESC
+            LIMIT 1
+          ) AS "latestMessage"
         FROM projection_threads
         WHERE thread_id = ${threadId}
           AND deleted_at IS NULL
@@ -1543,6 +1575,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
                       snoozedAt: row.snoozedAt,
                       session: sessionByThread.get(row.threadId) ?? null,
                       latestUserMessageAt: row.latestUserMessageAt,
+                      ...(row.latestMessage === null ? {} : { latestMessage: row.latestMessage }),
                       hasPendingApprovals: row.pendingApprovalCount > 0,
                       hasPendingUserInput: row.pendingUserInputCount > 0,
                       hasActionableProposedPlan: row.hasActionableProposedPlan > 0,
@@ -1681,6 +1714,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
                   snoozedAt: row.snoozedAt,
                   session: sessionByThread.get(row.threadId) ?? null,
                   latestUserMessageAt: row.latestUserMessageAt,
+                  ...(row.latestMessage === null ? {} : { latestMessage: row.latestMessage }),
                   hasPendingApprovals: row.pendingApprovalCount > 0,
                   hasPendingUserInput: row.pendingUserInputCount > 0,
                   hasActionableProposedPlan: row.hasActionableProposedPlan > 0,
@@ -1925,6 +1959,9 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
         snoozedAt: threadRow.value.snoozedAt,
         session: Option.isSome(sessionRow) ? mapSessionRow(sessionRow.value) : null,
         latestUserMessageAt: threadRow.value.latestUserMessageAt,
+        ...(threadRow.value.latestMessage === null
+          ? {}
+          : { latestMessage: threadRow.value.latestMessage }),
         hasPendingApprovals: threadRow.value.pendingApprovalCount > 0,
         hasPendingUserInput: threadRow.value.pendingUserInputCount > 0,
         hasActionableProposedPlan: threadRow.value.hasActionableProposedPlan > 0,
