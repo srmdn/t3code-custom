@@ -18,6 +18,18 @@ This fork includes the following additions on top of upstream:
 
 All sound customizations live in **Settings → Notifications**.
 
+**Files panel**
+
+- **Complete file browser** — the sidebar lists the real local workspace, including dotfiles and gitignored paths, with a partial indicator when the 25,000-entry cap is hit
+- **File operations** — create files and folders at the project root or inside folders, rename inline, delete with confirmation, and move by drag-and-drop
+- **Expand / collapse all** — one toggle expands or collapses every folder in the tree
+
+**Desktop notifications**
+
+- **Completion banner** — shows an OS notification with the agent's final output whenever a turn completes, focused or not
+- **Custom sound** — the selected preset chime plays with the banner (macOS's default notification sound is suppressed), driven by the same completion trigger
+- **Settings → General → System notifications** — enable toggle plus a **Send test** button to verify permission
+
 **DeepSeek provider (agentic)**
 
 - DeepSeek is a first-class provider tile: it keeps its full identity (icon, "API" badge, interaction mode toggle, `deepseek-v4-pro` / `deepseek-v4-flash` models, reasoning option) while running on the open-source **Codex CLI harness** as its engine.

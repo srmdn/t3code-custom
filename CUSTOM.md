@@ -19,7 +19,7 @@
 
 ## Customizations
 
-The fork is a small set of customizations on top of upstream, all merged into `origin/main`: sound completion notifications (consistent-loudness presets, per-thread completion triggering) and the DeepSeek provider on the Codex harness (honest settings form, defaulting to `deepseek-v4-flash`).
+The fork is a small set of customizations on top of upstream, all merged into `origin/main`: a complete Files panel (all-files listing plus create/rename/delete/move operations), desktop completion notifications (custom chime + OS banner with the agent's final output), sound completion notifications (consistent-loudness presets), and the DeepSeek provider on the Codex harness (honest settings form, defaulting to `deepseek-v4-flash`).
 
 ### Merged into `origin/main` — audio & repo hygiene
 
@@ -30,6 +30,18 @@ The fork is a small set of customizations on top of upstream, all merged into `o
 | `db23531d` | fix: `useAtomValue(null)` crashes React — empty atom instead    | `useAgentCompletionSound.ts`                                      |
 | `c8160ec6` | feat: sound notification settings (toggle + volume)             | `SettingsPanels.tsx`, `useAgentCompletionSound.ts`, `settings.ts` |
 | `b69533b2` | fix: volume slider missing CSS custom properties for fill color | `SettingsPanels.tsx`                                              |
+
+### Merged into `origin/main` — Files panel & desktop notifications
+
+| Commit     | Description                                                  | Files                                                                                                                                      |
+| ---------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `19fe7a0c` | feat(web): complete Files panel management and visibility    | `FileBrowserPanel.tsx`, `WorkspaceEntries.ts`, `WorkspaceFileSystem.ts`, `project.ts`, `ws.ts`, `projectCommands.ts`, mobile file browsers |
+| `16084bc3` | feat(desktop): notify when an agent finishes a turn          | `notifications.ts` (new), `preload.ts`, `channels.ts`, `useAgentCompletionNotifications.ts` (new), `localApi.ts`, `settings.ts`            |
+| `aa4d21e6` | fix(desktop): always show completion notifications           | `useAgentCompletionNotifications.ts`, `SettingsPanels.tsx`, `notifications.ts`                                                             |
+| `c7e5ee5d` | fix(desktop): unify completion sound and notification        | `useAgentCompletionNotifications.ts`, `useAgentCompletionSound.ts`, `ChatView.tsx`, `notifications.ts`                                     |
+| `c136c397` | fix(desktop): guarantee the completion banner shows          | `useAgentCompletionNotifications.ts`, `notifications.ts`                                                                                   |
+| `2dc4d304` | fix(desktop): show the finished task in completion banners   | `useAgentCompletionNotifications.ts`                                                                                                       |
+| `96c61352` | fix(desktop): carry the latest message text in thread shells | `orchestration.ts`, `ProjectionSnapshotQuery.ts`, `useAgentCompletionNotifications.ts`                                                     |
 
 ### On `feat/deepseek-provider` (not yet pushed) — DeepSeek provider
 
@@ -48,19 +60,31 @@ The fork is a small set of customizations on top of upstream, all merged into `o
 | `6a4c6f8a` | test(server): verify DeepSeek model metadata             | `apps/server/src/provider/Layers/DeepSeekAdapter.test.ts`, `DeepSeekAdapter.ts`                                        |
 | `77cf9267` | feat(server): run DeepSeek provider on the Codex harness | `DeepSeekDriver.ts`, `CodexAdapter.ts`, `CodexSessionRuntime.ts`, `settings.ts`, `DeepSeekProvider.test.ts`            |
 
-## Feature: Sound completion notification (web)
+## Feature: Completion sound & OS notifications (web + desktop)
 
-Plays a sound when an agent turn completes, so you can leave T3 Code in the background.
+Plays the selected preset chime and shows an OS notification banner when an agent turn completes, so you can leave T3 Code in the background.
 
-- **Trigger:** fires when a thread's latest turn transitions to `completedAt` (a _just completed_ edge, not on every render).
-- **Edge cases:** the first observation of a thread only establishes a baseline, so opening an already-finished thread never chimes; a turn that completes while you are on another thread chimes exactly once when you come back to it. Completion state is tracked per thread.
-- **Settings** (in Settings, "Sound notification"): enable toggle, volume slider (0–100, default `80`), and a preset picker with **5 presets** — `classic-ding-dong`, `codex`, `hero`, `ping`, `rich-double` — each with a **preview button** (plays without needing a completed turn).
+- **Trigger:** a single root-level hook (`useAgentCompletionNotifications`) watches every thread shell and fires when a thread's latest turn transitions to `completedAt` (a _just completed_ edge, not on every render). Sound and banner share that one transition, so they stay in sync, and background threads notify too.
+- **Banner:** shows the thread's latest message — the agent's final output — served directly in the thread shell (`latestMessage`), so no client-side fetch is needed. Clicking the banner focuses the main window.
+- **Sound:** the banner is silent at the OS level (`silent: true`), so the selected preset chime is the only sound and macOS's default notification sound never plays.
+- **Edge cases:** the first observation of a thread only establishes a baseline, so opening an already-finished thread never chimes. Completion state is tracked per thread.
+- **Settings** (in Settings → General): **Sound notifications** enable toggle, volume slider (0–100, default `80`), preset picker with **5 presets** — `classic-ding-dong`, `codex`, `hero`, `ping`, `rich-double` — each with a **preview button**; **System notifications** enable toggle plus a **Send test** button to verify macOS permission.
 - **Sound assets:** bundled as static files under `apps/web/public/sounds/`, normalized to consistent loudness (peak ≈ -1 dBFS, integrated ≈ -12 LUFS, all 16-bit PCM) so every preset is clearly audible at the same slider setting.
-- **Contracts:** `soundEnabled`, `soundVolume`, `soundPreset` added to `packages/contracts/src/settings.ts` with a sensible default (`SoundPreset` default resolves to a built-in preset).
+- **Contracts:** `soundEnabled`, `soundVolume`, `soundPreset`, and `completionNotificationsEnabled` in `packages/contracts/src/settings.ts`; `latestMessage` added to `OrchestrationThreadShell` in `packages/contracts/src/orchestration.ts`.
 - **Browser autoplay:** playback failures are swallowed (`Audio.play()` can be blocked by autoplay policy) — never throws into the UI.
-- **Files:** `apps/web/src/hooks/useAgentCompletionSound.ts`, `apps/web/src/components/ChatView.tsx`, `apps/web/src/components/settings/SettingsPanels.tsx`.
+- **Desktop IPC:** `desktop:show-notification` channel — `apps/desktop/src/ipc/methods/notifications.ts`, `apps/desktop/src/ipc/channels.ts`, `apps/desktop/src/ipc/DesktopIpcHandlers.ts`, `apps/desktop/src/preload.ts`.
+- **Files:** `apps/web/src/hooks/useAgentCompletionNotifications.ts` (root-level trigger), `apps/web/src/hooks/useAgentCompletionSound.ts`, `apps/web/src/localApi.ts`, `apps/web/src/routes/__root.tsx`, `apps/web/src/components/settings/SettingsPanels.tsx`, `apps/server/src/orchestration/Layers/ProjectionSnapshotQuery.ts`.
 
-Scope: web-only, does not touch server, contracts beyond the settings schema, or other clients.
+Scope: web + desktop. The sound hook no longer lives in `ChatView.tsx`; the root-level hook handles every thread, so the earlier "chimes when you come back to a thread" behavior is replaced by immediate per-thread chimes.
+
+## Feature: Files panel (web + mobile)
+
+The Files sidebar browses the real local workspace instead of the search index, so nothing is hidden from view.
+
+- **All-files listing:** `projects.listEntries` accepts `includeIgnored`; the server walks the workspace directly and returns dotfiles and gitignored paths, with a partial indicator when the 25,000-entry cap is hit. Web and mobile file browsers both opt in.
+- **File operations:** new typed RPCs `projects.createEntry`, `projects.renameEntry`, `projects.deleteEntry` with workspace-root path safety and index refresh. The UI supports creating files and folders at the project root (header **+** button) or inside folders, inline rename, delete with confirmation, and drag-and-drop moves.
+- **Expand / collapse all:** a single header toggle expands or collapses every folder; the icon reflects the last action.
+- **Files:** `apps/web/src/components/files/FileBrowserPanel.tsx`, `projectFilesQueryState.ts`, `apps/server/src/workspace/WorkspaceEntries.ts`, `WorkspaceFileSystem.ts`, `WorkspaceSearchIndex.ts`, `apps/server/src/ws.ts`, `packages/contracts/src/project.ts`, `rpc.ts`, `ipc.ts`, `packages/client-runtime/src/state/projectCommands.ts`, `apps/mobile/src/features/files/*`.
 
 ## Feature: DeepSeek provider on the Codex harness
 
@@ -108,10 +132,12 @@ Our changes are parameterization-only (defaults preserve upstream behavior), so 
 
 Customizations are no longer web-only. They now cover:
 
-- `apps/web` (audio notification)
-- `packages/contracts` (settings schema: sound + DeepSeek)
-- `apps/server` (DeepSeek provider, driver, Codex harness parameterization)
-- `apps/mobile` (DeepSeek provider registration)
+- `apps/web` (audio notification, completion banner trigger, Files panel UI)
+- `apps/desktop` (OS notification IPC via Electron)
+- `apps/server` (DeepSeek provider, driver, Codex harness parameterization, workspace file operations, `latestMessage` in thread shells)
+- `packages/contracts` (settings schema: sound + notifications, file-entry RPCs, shell schema)
+- `packages/client-runtime` (file-entry commands)
+- `apps/mobile` (DeepSeek provider registration, all-files listing)
 
 ## Additional Configuration
 
