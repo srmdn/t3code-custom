@@ -36,6 +36,16 @@ All sound customizations live in **Settings → Notifications**.
 - To use it, install the [Codex CLI](https://developers.openai.com/codex/cli) and point the provider at your DeepSeek Codex home (`~/.codex-deepseek`). `deepseek-v4-flash` works end-to-end and is the default; `deepseek-v4-pro` is still gated by DeepSeek's API (verified as of early August 2026) but stays selectable in the model list.
 - Added via **Add provider → DeepSeek**, like any other provider.
 
+## Screenshots
+
+**Notification settings** — sound and system notification settings, with the test notification banner.
+
+![Notification settings](assets/screenshots/notification-settings.webp)
+
+**Files panel** — complete file browser listing dotfiles and gitignored paths, with the partial indicator.
+
+![Files panel](assets/screenshots/files-panel.webp)
+
 See [CUSTOM.md](./CUSTOM.md) for the full fork changelog, DeepSeek architecture notes, and upstream sync/confidentiality guidance.
 
 ## "Wait, what are you selling me?"
