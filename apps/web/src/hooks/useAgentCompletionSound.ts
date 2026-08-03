@@ -41,7 +41,7 @@ export function nextCompletionSoundState(
   return { state, shouldPlay: previous.completedAt === null && completedAt !== null };
 }
 
-function playSound(preset: SoundPreset, volume: number): void {
+export function playCompletionSound(preset: SoundPreset, volume: number): void {
   const url = SOUND_URLS[preset];
   if (!url) return;
 
@@ -93,7 +93,7 @@ export function useAgentCompletionSound(ref: ScopedThreadRef | null): void {
     completionStatesRef.current.set(threadKey, state);
 
     if (shouldPlay && settings.soundEnabled) {
-      playSound(settings.soundPreset, settings.soundVolume);
+      playCompletionSound(settings.soundPreset, settings.soundVolume);
     }
   }, [
     threadKey,
