@@ -29,7 +29,10 @@ interface ProjectQueryState<A> {
 }
 
 export function getProjectEntriesQueryAtom(environmentId: EnvironmentId, cwd: string) {
-  return projectEnvironment.listEntries({ environmentId, input: { cwd } });
+  return projectEnvironment.listEntries({
+    environmentId,
+    input: { cwd, includeIgnored: true },
+  });
 }
 
 export function getProjectFileQueryAtom(

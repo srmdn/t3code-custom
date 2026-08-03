@@ -251,7 +251,7 @@ export function ThreadFilesTreeScreen(props: ThreadFilesRouteScreenProps) {
     environmentId !== null && cwd !== null && !fileInspector.supported
       ? projectEnvironment.listEntries({
           environmentId,
-          input: { cwd },
+          input: { cwd, includeIgnored: true },
         })
       : null,
   );
@@ -445,6 +445,7 @@ export function ThreadFilesTreeScreen(props: ThreadFilesRouteScreenProps) {
         entries={entriesData?.entries ?? []}
         error={entriesQuery.error}
         isPending={entriesQuery.isPending}
+        truncated={entriesData?.truncated ?? false}
         searchQuery={searchQuery}
         selectedPath={null}
         onPreviewFile={handlePreviewFile}

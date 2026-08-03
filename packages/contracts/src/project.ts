@@ -28,6 +28,7 @@ export type ProjectSearchEntriesResult = typeof ProjectSearchEntriesResult.Type;
 
 export const ProjectListEntriesInput = Schema.Struct({
   cwd: TrimmedNonEmptyString,
+  includeIgnored: Schema.optional(Schema.Boolean),
 });
 export type ProjectListEntriesInput = typeof ProjectListEntriesInput.Type;
 
@@ -45,6 +46,7 @@ export const ProjectEntriesFailure = Schema.Literals([
   "search_index_create_failed",
   "search_index_scan_timed_out",
   "search_index_search_failed",
+  "workspace_scan_failed",
 ]);
 export type ProjectEntriesFailure = typeof ProjectEntriesFailure.Type;
 
@@ -136,6 +138,8 @@ export const ProjectFileFailure = Schema.Literals([
   "path_not_file",
   "binary_file",
   "operation_failed",
+  "target_exists",
+  "path_not_found",
 ]);
 export type ProjectFileFailure = typeof ProjectFileFailure.Type;
 
@@ -148,6 +152,10 @@ export const ProjectFileOperation = Schema.Literals([
   "close",
   "make-directory",
   "write-file",
+  "create-file",
+  "create-directory",
+  "rename",
+  "delete",
 ]);
 export type ProjectFileOperation = typeof ProjectFileOperation.Type;
 
@@ -220,6 +228,71 @@ export class ProjectWriteFileError extends Schema.TaggedErrorClass<ProjectWriteF
       message:
         decodedProjectErrorMessage(props) ??
         `Failed to write workspace file '${props.relativePath}' in '${props.cwd}'.`,
+    } as any);
+  }
+}
+
+export const ProjectEntryOperation = Schema.Literals([
+  "create-file",
+  "create-directory",
+  "rename",
+  "delete",
+]);
+export type ProjectEntryOperation = typeof ProjectEntryOperation.Type;
+
+export const ProjectCreateEntryInput = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+  relativePath: TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_WRITE_FILE_PATH_MAX_LENGTH)),
+  kind: Schema.Literals(["file", "directory"]),
+});
+export type ProjectCreateEntryInput = typeof ProjectCreateEntryInput.Type;
+
+export const ProjectRenameEntryInput = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+  sourcePath: TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_WRITE_FILE_PATH_MAX_LENGTH)),
+  targetPath: TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_WRITE_FILE_PATH_MAX_LENGTH)),
+});
+export type ProjectRenameEntryInput = typeof ProjectRenameEntryInput.Type;
+
+export const ProjectDeleteEntryInput = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+  relativePath: TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_WRITE_FILE_PATH_MAX_LENGTH)),
+});
+export type ProjectDeleteEntryInput = typeof ProjectDeleteEntryInput.Type;
+
+export const ProjectEntryOperationResult = Schema.Struct({
+  relativePath: TrimmedNonEmptyString,
+});
+export type ProjectEntryOperationResult = typeof ProjectEntryOperationResult.Type;
+
+export class ProjectEntryOperationError extends Schema.TaggedErrorClass<ProjectEntryOperationError>()(
+  "ProjectEntryOperationError",
+  {
+    cwd: Schema.optional(TrimmedNonEmptyString),
+    operation: Schema.optional(ProjectEntryOperation),
+    relativePath: Schema.optional(TrimmedNonEmptyString),
+    sourcePath: Schema.optional(TrimmedNonEmptyString),
+    failure: Schema.optional(ProjectFileFailure),
+    resolvedPath: Schema.optional(TrimmedNonEmptyString),
+    resolvedWorkspaceRoot: Schema.optional(TrimmedNonEmptyString),
+    operationPath: Schema.optional(TrimmedNonEmptyString),
+    detail: Schema.optional(TrimmedNonEmptyString),
+    message: TrimmedNonEmptyString,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {
+  // @effect-diagnostics-next-line overriddenSchemaConstructor:off
+  constructor(
+    props: Omit<ProjectFileFailureContext, "operation"> & {
+      readonly operation: ProjectEntryOperation;
+      readonly sourcePath?: string;
+    },
+  ) {
+    super({
+      ...props,
+      message:
+        decodedProjectErrorMessage(props) ??
+        `Failed workspace entry operation '${props.operation}' in '${props.cwd}'.`,
     } as any);
   }
 }

@@ -116,6 +116,92 @@ it.layer(TestLayer, { excludeTestServices: true })("WorkspaceEntries", (it) => {
         expect(result.truncated).toBe(false);
       }),
     );
+
+    it.effect("includes gitignored and dot entries when includeIgnored is true", () =>
+      Effect.gen(function* () {
+        const cwd = yield* makeTempDir({ prefix: "t3code-workspace-list-all-", git: true });
+        yield* writeTextFile(cwd, ".gitignore", ".sisyphus/\nignored.txt\n");
+        yield* writeTextFile(cwd, ".sisyphus/state.json", "{}");
+        yield* writeTextFile(cwd, "ignored.txt", "ignore me");
+        yield* writeTextFile(cwd, ".github/workflows/ci.yml", "{}");
+        yield* writeTextFile(cwd, "src/keep.ts", "export {};");
+        yield* writeTextFile(cwd, "node_modules/pkg/index.js", "{}");
+        yield* writeTextFile(cwd, ".git/HEAD", "ref");
+
+        const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
+        const result = yield* workspaceEntries.list({ cwd, includeIgnored: true });
+        const paths = result.entries.map((entry) => entry.path);
+
+        expect(paths).toContain(".sisyphus");
+        expect(paths).toContain(".sisyphus/state.json");
+        expect(paths).toContain("ignored.txt");
+        expect(paths).toContain(".github");
+        expect(paths).toContain(".github/workflows");
+        expect(paths).toContain(".github/workflows/ci.yml");
+        expect(paths).toContain("src/keep.ts");
+        expect(paths).toContain(".git");
+        expect(paths).toContain(".git/HEAD");
+        expect(paths).toContain("node_modules");
+        expect(paths).toContain("node_modules/pkg");
+        expect(paths).toContain("node_modules/pkg/index.js");
+        expect(result.truncated).toBe(false);
+      }),
+    );
+
+    it.effect("includes every directory, even ones the search index ignores", () =>
+      Effect.gen(function* () {
+        const cwd = yield* makeTempDir({ prefix: "t3code-workspace-list-all-junk-" });
+        yield* writeTextFile(cwd, ".venv/lib/site.py", "{}");
+        yield* writeTextFile(cwd, "__pycache__/cache.pyc", "{}");
+        yield* writeTextFile(cwd, ".convex/data.json", "{}");
+        yield* writeTextFile(cwd, "target/debug/binary", "{}");
+        yield* writeTextFile(cwd, "target/src/main.rs", "{}");
+        yield* writeTextFile(cwd, "Library/Caches/thing", "{}");
+        yield* writeTextFile(cwd, "src/keep.ts", "export {};");
+
+        const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
+        const result = yield* workspaceEntries.list({ cwd, includeIgnored: true });
+        const paths = result.entries.map((entry) => entry.path);
+
+        expect(paths).toContain("target");
+        expect(paths).toContain("target/src");
+        expect(paths).toContain("target/src/main.rs");
+        expect(paths).toContain(".venv");
+        expect(paths).toContain(".venv/lib");
+        expect(paths).toContain(".venv/lib/site.py");
+        expect(paths).toContain("__pycache__");
+        expect(paths).toContain("__pycache__/cache.pyc");
+        expect(paths).toContain(".convex");
+        expect(paths).toContain(".convex/data.json");
+        expect(paths).toContain("target/debug");
+        expect(paths).toContain("target/debug/binary");
+        expect(paths).toContain("Library");
+        expect(paths).toContain("Library/Caches");
+        expect(paths).toContain("Library/Caches/thing");
+        expect(result.truncated).toBe(false);
+      }),
+    );
+
+    it.effect("skips unreadable subdirectories while listing all files", () =>
+      Effect.gen(function* () {
+        const cwd = yield* makeTempDir({ prefix: "t3code-workspace-list-all-eacces-" });
+        yield* writeTextFile(cwd, "visible.txt", "ok");
+        yield* writeTextFile(cwd, "locked/secret.txt", "x");
+
+        const denied = Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
+        const originalReaddir = vi.mocked(NodeFSP.readdir).getMockImplementation()!;
+        vi.mocked(NodeFSP.readdir)
+          .mockImplementationOnce(originalReaddir)
+          .mockRejectedValueOnce(denied);
+
+        const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
+        const result = yield* workspaceEntries.list({ cwd, includeIgnored: true });
+        const paths = result.entries.map((entry) => entry.path);
+
+        expect(paths).toContain("visible.txt");
+        expect(paths.some((entryPath) => entryPath.startsWith("locked/"))).toBe(false);
+      }),
+    );
   });
 
   describe("search", () => {

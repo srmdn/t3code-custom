@@ -2,11 +2,15 @@ import type {
   ContextMenuItem as TreeContextMenuItem,
   ContextMenuOpenContext as TreeContextMenuOpenContext,
 } from "@pierre/trees";
+import {
+  squashAtomCommandFailure,
+  type AtomCommandResult,
+} from "@t3tools/client-runtime/state/runtime";
 import type { EnvironmentId, ProjectEntry } from "@t3tools/contracts";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import { serializeComposerFileLink } from "@t3tools/shared/composerTrigger";
-import { RefreshCw, Search } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { ChevronsDownUpIcon, ChevronsUpDownIcon, Plus, RefreshCw, Search } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { toastManager } from "~/components/ui/toast";
 import { useComposerHandleContext } from "~/composerHandleContext";
@@ -15,6 +19,9 @@ import { useTheme } from "~/hooks/useTheme";
 import { cn } from "~/lib/utils";
 import { readLocalApi } from "~/localApi";
 import { T3_PIERRE_ICONS } from "~/pierre-icons";
+import { projectEnvironment } from "~/state/projects";
+import { useAtomCommand } from "~/state/use-atom-command";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 import { createFileTreeDragMentionController } from "./fileTreeDragMention";
 import { useProjectEntriesQuery } from "./projectFilesQueryState";
@@ -42,6 +49,22 @@ function treePath(entry: ProjectEntry): string {
   return entry.kind === "directory" ? `${entry.path}/` : entry.path;
 }
 
+function normalizeEntryPath(path: string): string {
+  return path.endsWith("/") ? path.slice(0, -1) : path;
+}
+
+function canonicalTreePath(relativePath: string, kind: "file" | "directory"): string {
+  return kind === "directory" ? `${relativePath}/` : relativePath;
+}
+
+function commandErrorMessage(result: AtomCommandResult<unknown, unknown>): string {
+  if (result._tag === "Success") {
+    return "";
+  }
+  const error = squashAtomCommandFailure(result);
+  return error instanceof Error ? error.message : String(error);
+}
+
 export default function FileBrowserPanel({
   environmentId,
   cwd,
@@ -52,6 +75,10 @@ export default function FileBrowserPanel({
   const composerRef = useComposerHandleContext();
   const entriesQuery = useProjectEntriesQuery(environmentId, cwd);
   const entries = entriesQuery.data?.entries ?? [];
+  const createEntry = useAtomCommand(projectEnvironment.createEntry);
+  const renameEntry = useAtomCommand(projectEnvironment.renameEntry);
+  const deleteEntry = useAtomCommand(projectEnvironment.deleteEntry);
+  const pendingCreatesRef = useRef(new Map<string, "file" | "directory">());
   const entryKinds = useMemo(
     () => new Map(entries.map((entry) => [entry.path, entry.kind] as const)),
     [entries],
@@ -90,13 +117,36 @@ export default function FileBrowserPanel({
       ? { x: pointer.x, y: pointer.y }
       : { x: anchorRect.left, y: anchorRect.bottom };
     try {
-      const clicked = await api.contextMenu.show(
-        [
-          { id: "copy-mention", label: "Copy mention" },
-          { id: "add-to-chat", label: "Add to chat" },
-        ],
-        position,
+      const items: Array<{ id: string; label: string }> = [];
+      if (item.kind === "directory") {
+        items.push(
+          { id: "new-file", label: "New file" },
+          { id: "new-folder", label: "New folder" },
+        );
+      }
+      items.push(
+        { id: "rename", label: "Rename" },
+        { id: "delete", label: item.kind === "directory" ? "Delete folder" : "Delete" },
+        { id: "copy-mention", label: "Copy mention" },
+        { id: "add-to-chat", label: "Add to chat" },
       );
+      const clicked = await api.contextMenu.show(items, position);
+      if (clicked === "new-file") {
+        startCreateEntry(relativePath, "file");
+        return;
+      }
+      if (clicked === "new-folder") {
+        startCreateEntry(relativePath, "directory");
+        return;
+      }
+      if (clicked === "rename") {
+        startRenameEntry(relativePath);
+        return;
+      }
+      if (clicked === "delete") {
+        void confirmDeleteEntry(relativePath, item.kind);
+        return;
+      }
       if (clicked === "copy-mention") {
         try {
           await writeTextToClipboard(mention);
@@ -155,14 +205,29 @@ export default function FileBrowserPanel({
         },
       },
     },
-    // Rows only need to be draggable so entries can be dropped into the chat
-    // composer; rearranging files inside the tree stays off.
-    dragAndDrop: { canDrop: () => false },
+    dragAndDrop: {
+      canDrag: (paths) => paths.length === 1,
+      canDrop: (event) => {
+        const target = event.target;
+        if (target.kind !== "directory" || target.directoryPath === null) {
+          return false;
+        }
+        const dragged = normalizeEntryPath(event.draggedPaths[0] ?? "");
+        const targetPath = normalizeEntryPath(target.directoryPath);
+        return dragged !== targetPath && !targetPath.startsWith(`${dragged}/`);
+      },
+      onDropError: (error) =>
+        toastManager.add({ type: "error", title: "Move failed", description: error }),
+    },
     density: "compact",
     fileTreeSearchMode: "hide-non-matches",
     flattenEmptyDirectories: true,
     initialExpansion: 1,
     icons: T3_PIERRE_ICONS,
+    renaming: {
+      onError: (error) =>
+        toastManager.add({ type: "error", title: "Rename failed", description: error }),
+    },
     onSelectionChange: (selectedPaths) => {
       dragMention.handleSelectionChange(selectedPaths);
       // Starting a drag selects the dragged row; that selection is a side
@@ -185,12 +250,164 @@ export default function FileBrowserPanel({
     entryKindsRef.current = entryKinds;
     previousTreePathsRef.current = treePaths;
     model.resetPaths(treePaths);
+    setAllDirectoriesExpanded(false);
   }, [entryKinds, model, treePaths]);
+
+  const startCreateEntry = (parentPath: string, kind: "file" | "directory") => {
+    const baseName = kind === "directory" ? "untitled folder" : "untitled";
+    const existingPaths = new Set<string>([
+      ...entries.map((entry) => entry.path),
+      ...pendingCreatesRef.current.keys(),
+    ]);
+    let name = baseName;
+    let index = 2;
+    while (existingPaths.has(parentPath ? `${parentPath}/${name}` : name)) {
+      name = `${baseName} ${index}`;
+      index += 1;
+    }
+    const placeholderPath = parentPath ? `${parentPath}/${name}` : name;
+    const canonicalPath = canonicalTreePath(placeholderPath, kind);
+    void (async () => {
+      const result = await createEntry({
+        environmentId,
+        input: { cwd, relativePath: placeholderPath, kind },
+      });
+      if (result._tag !== "Success") {
+        toastManager.add({
+          type: "error",
+          title: kind === "directory" ? "Failed to create folder" : "Failed to create file",
+          description: commandErrorMessage(result),
+        });
+        return;
+      }
+      try {
+        model.add(canonicalPath);
+      } catch (error) {
+        void deleteEntry({ environmentId, input: { cwd, relativePath: placeholderPath } });
+        toastManager.add({
+          type: "error",
+          title: "Failed to create entry",
+          description: error instanceof Error ? error.message : "An error occurred.",
+        });
+        return;
+      }
+      if (model.getItem(canonicalPath) === null) {
+        void deleteEntry({ environmentId, input: { cwd, relativePath: placeholderPath } });
+        toastManager.add({
+          type: "error",
+          title: "Failed to create entry",
+          description: "The parent folder is no longer available.",
+        });
+        return;
+      }
+      pendingCreatesRef.current.set(placeholderPath, kind);
+      model.startRenaming(canonicalPath, { removeIfCanceled: true });
+    })();
+  };
+
+  const startRenameEntry = (relativePath: string) => {
+    const kind = entryKinds.get(relativePath);
+    model.startRenaming(
+      canonicalTreePath(relativePath, kind === "directory" ? "directory" : "file"),
+    );
+  };
+
+  const showCreateAtRootMenu = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    const api = readLocalApi();
+    if (!api) {
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const clicked = await api.contextMenu.show(
+      [
+        { id: "new-file", label: "New file" },
+        { id: "new-folder", label: "New folder" },
+      ],
+      { x: rect.left, y: rect.bottom },
+    );
+    if (clicked === "new-file") {
+      startCreateEntry("", "file");
+    } else if (clicked === "new-folder") {
+      startCreateEntry("", "directory");
+    }
+  };
+
+  const confirmDeleteEntry = async (relativePath: string, kind: "file" | "directory") => {
+    const label = kind === "directory" ? "folder" : "file";
+    const confirmed = window.confirm(`Delete ${label} '${relativePath}'? This cannot be undone.`);
+    if (!confirmed) {
+      return;
+    }
+    const result = await deleteEntry({ environmentId, input: { cwd, relativePath } });
+    if (result._tag !== "Success") {
+      toastManager.add({
+        type: "error",
+        title: `Failed to delete ${label}`,
+        description: commandErrorMessage(result),
+      });
+      return;
+    }
+    entriesQuery.refresh();
+  };
+
+  useEffect(() => {
+    const unsubscribeMove = model.onMutation("move", (event) => {
+      const from = normalizeEntryPath(event.from);
+      const to = normalizeEntryPath(event.to);
+      void (async () => {
+        const result = await renameEntry({
+          environmentId,
+          input: { cwd, sourcePath: from, targetPath: to },
+        });
+        if (result._tag !== "Success") {
+          toastManager.add({
+            type: "error",
+            title: "Failed to rename",
+            description: commandErrorMessage(result),
+          });
+          model.resetPaths(treePaths);
+          return;
+        }
+        pendingCreatesRef.current.delete(from);
+        entriesQuery.refresh();
+      })();
+    });
+    const unsubscribeRemove = model.onMutation("remove", (event) => {
+      const removedPath = normalizeEntryPath(event.path);
+      if (pendingCreatesRef.current.delete(removedPath)) {
+        void deleteEntry({ environmentId, input: { cwd, relativePath: removedPath } });
+      }
+    });
+    return () => {
+      unsubscribeMove();
+      unsubscribeRemove();
+    };
+  }, [cwd, deleteEntry, entriesQuery.refresh, environmentId, model, renameEntry, treePaths]);
 
   const fileCount = useMemo(
     () => entries.reduce((count, entry) => count + (entry.kind === "file" ? 1 : 0), 0),
     [entries],
   );
+  const [allDirectoriesExpanded, setAllDirectoriesExpanded] = useState(false);
+
+  const toggleAllDirectories = () => {
+    const nextExpanded = !allDirectoriesExpanded;
+    for (const entry of entries) {
+      if (entry.kind !== "directory") {
+        continue;
+      }
+      const item = model.getItem(entry.path);
+      if (item === null) {
+        continue;
+      }
+      if (!nextExpanded && "collapse" in item) {
+        item.collapse();
+      } else if (nextExpanded && "expand" in item) {
+        item.expand();
+      }
+    }
+    setAllDirectoriesExpanded(nextExpanded);
+  };
 
   // Tag tree drags with the composer mention payload. The row is read from
   // the composed event path (the tree's shadow root is open), so this does
@@ -233,6 +450,42 @@ export default function FileBrowserPanel({
             {entriesQuery.data?.truncated ? " · partial" : ""}
           </div>
         </div>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Create file or folder in project root"
+                onClick={(event) => void showCreateAtRootMenu(event)}
+              />
+            }
+          >
+            <Plus className="size-3.5" />
+            <TooltipPopup side="top">Create file or folder in project root</TooltipPopup>
+          </TooltipTrigger>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label={allDirectoriesExpanded ? "Collapse all folders" : "Expand all folders"}
+                onClick={toggleAllDirectories}
+              />
+            }
+          >
+            {allDirectoriesExpanded ? (
+              <ChevronsDownUpIcon className="size-3.5" />
+            ) : (
+              <ChevronsUpDownIcon className="size-3.5" />
+            )}
+          </TooltipTrigger>
+          <TooltipPopup side="top">
+            {allDirectoriesExpanded ? "Collapse all folders" : "Expand all folders"}
+          </TooltipPopup>
+        </Tooltip>
         <button
           type="button"
           className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"

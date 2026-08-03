@@ -265,4 +265,157 @@ it.layer(TestLayer, { excludeTestServices: true })("WorkspaceFileSystemLive", (i
       }),
     );
   });
+
+  describe("createEntry", () => {
+    it.effect("creates an empty file and refreshes the workspace index", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
+        const fileSystem = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cwd = yield* makeTempDir;
+
+        const result = yield* workspaceFileSystem.createEntry({
+          cwd,
+          relativePath: "src/new.ts",
+          kind: "file",
+        });
+
+        expect(result).toEqual({ relativePath: "src/new.ts" });
+        expect(yield* fileSystem.readFileString(path.join(cwd, "src", "new.ts"))).toBe("");
+        const entries = yield* workspaceEntries.list({ cwd });
+        expect(entries.entries).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ path: "src", kind: "directory" }),
+            expect.objectContaining({ path: "src/new.ts", kind: "file" }),
+          ]),
+        );
+      }),
+    );
+
+    it.effect("creates a directory", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const fileSystem = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cwd = yield* makeTempDir;
+
+        const result = yield* workspaceFileSystem.createEntry({
+          cwd,
+          relativePath: "components",
+          kind: "directory",
+        });
+
+        expect(result).toEqual({ relativePath: "components" });
+        const stat = yield* fileSystem
+          .stat(path.join(cwd, "components"))
+          .pipe(Effect.orElseSucceed(() => null));
+        expect(stat?.type).toBe("Directory");
+      }),
+    );
+
+    it.effect("fails when the target already exists", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+        yield* writeTextFile(cwd, "existing.txt", "x");
+
+        const error = yield* workspaceFileSystem
+          .createEntry({ cwd, relativePath: "existing.txt", kind: "file" })
+          .pipe(Effect.flip);
+
+        expect(error).toBeInstanceOf(WorkspaceFileSystem.WorkspaceTargetExistsError);
+      }),
+    );
+  });
+
+  describe("renameEntry", () => {
+    it.effect("renames a file", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const fileSystem = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cwd = yield* makeTempDir;
+        yield* writeTextFile(cwd, "old.txt", "payload\n");
+
+        const result = yield* workspaceFileSystem.renameEntry({
+          cwd,
+          sourcePath: "old.txt",
+          targetPath: "renamed.txt",
+        });
+
+        expect(result).toEqual({ relativePath: "renamed.txt" });
+        expect(yield* fileSystem.readFileString(path.join(cwd, "renamed.txt"))).toBe("payload\n");
+        const oldStat = yield* fileSystem
+          .stat(path.join(cwd, "old.txt"))
+          .pipe(Effect.orElseSucceed(() => null));
+        expect(oldStat).toBeNull();
+      }),
+    );
+
+    it.effect("fails when the target already exists", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+        yield* writeTextFile(cwd, "source.txt", "x");
+        yield* writeTextFile(cwd, "target.txt", "y");
+
+        const error = yield* workspaceFileSystem
+          .renameEntry({ cwd, sourcePath: "source.txt", targetPath: "target.txt" })
+          .pipe(Effect.flip);
+
+        expect(error).toBeInstanceOf(WorkspaceFileSystem.WorkspaceTargetExistsError);
+      }),
+    );
+
+    it.effect("fails when the source is missing", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+
+        const error = yield* workspaceFileSystem
+          .renameEntry({ cwd, sourcePath: "missing.txt", targetPath: "new.txt" })
+          .pipe(Effect.flip);
+
+        expect(error).toBeInstanceOf(WorkspaceFileSystem.WorkspaceSourceNotFoundError);
+      }),
+    );
+  });
+
+  describe("deleteEntry", () => {
+    it.effect("deletes a directory recursively", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const fileSystem = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cwd = yield* makeTempDir;
+        yield* writeTextFile(cwd, "src/a.ts", "a");
+        yield* writeTextFile(cwd, "src/nested/b.ts", "b");
+
+        const result = yield* workspaceFileSystem.deleteEntry({
+          cwd,
+          relativePath: "src",
+        });
+
+        expect(result).toEqual({ relativePath: "src" });
+        const stat = yield* fileSystem
+          .stat(path.join(cwd, "src"))
+          .pipe(Effect.orElseSucceed(() => null));
+        expect(stat).toBeNull();
+      }),
+    );
+
+    it.effect("fails when the path does not exist", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+
+        const error = yield* workspaceFileSystem
+          .deleteEntry({ cwd, relativePath: "missing.txt" })
+          .pipe(Effect.flip);
+
+        expect(error).toBeInstanceOf(WorkspaceFileSystem.WorkspaceSourceNotFoundError);
+      }),
+    );
+  });
 });

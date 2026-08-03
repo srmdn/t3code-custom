@@ -1,4 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off
+import type { Dirent } from "node:fs";
 import * as NodeFSP from "node:fs/promises";
 import * as NodeOS from "node:os";
 
@@ -12,6 +13,7 @@ import * as Schema from "effect/Schema";
 import type {
   FilesystemBrowseInput,
   FilesystemBrowseResult,
+  ProjectEntry,
   ProjectListEntriesInput,
   ProjectListEntriesResult,
   ProjectSearchEntriesInput,
@@ -63,6 +65,19 @@ export class WorkspaceEntriesReadDirectoryError extends Schema.TaggedErrorClass<
   }
 }
 
+export class WorkspaceEntriesListFilesError extends Schema.TaggedErrorClass<WorkspaceEntriesListFilesError>()(
+  "WorkspaceEntriesListFilesError",
+  {
+    cwd: Schema.String,
+    reason: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {
+  override get message(): string {
+    return `Failed to list workspace files for '${this.cwd}': ${this.reason}`;
+  }
+}
+
 export const WorkspaceEntriesBrowseError = Schema.Union([
   WorkspaceEntriesWindowsPathUnsupportedError,
   WorkspaceEntriesCurrentProjectRequiredError,
@@ -78,6 +93,7 @@ export const WorkspaceEntriesError = Schema.Union([
   WorkspaceSearchIndex.WorkspaceSearchIndexCreateFailed,
   WorkspaceSearchIndex.WorkspaceSearchIndexScanTimedOut,
   WorkspaceSearchIndex.WorkspaceSearchIndexSearchFailed,
+  WorkspaceEntriesListFilesError,
 ]);
 export type WorkspaceEntriesError = typeof WorkspaceEntriesError.Type;
 
@@ -241,9 +257,72 @@ export const make = Effect.gen(function* () {
     },
   );
 
+  const listAllFiles = Effect.fn("WorkspaceEntries.listAllFiles")(function* (cwd: string) {
+    const entries: ProjectEntry[] = [];
+    let truncated = false;
+
+    // Breadth-first so a workspace bigger than the entry cap still gets every
+    // shallow folder; a depth-first walk would hand the whole budget to the
+    // first large subtree and hide top-level folders entirely.
+    const walk = async (): Promise<void> => {
+      const queue: Array<{ readonly directory: string; readonly relativePath: string }> = [
+        { directory: cwd, relativePath: "" },
+      ];
+      let head = 0;
+      while (head < queue.length && !truncated) {
+        const current = queue[head]!;
+        head += 1;
+        let dirents: ReadonlyArray<Dirent>;
+        try {
+          dirents = await NodeFSP.readdir(current.directory, { withFileTypes: true });
+        } catch (cause) {
+          const code = (cause as NodeJS.ErrnoException | undefined)?.code;
+          if (code === "EACCES" || code === "EPERM") {
+            continue;
+          }
+          throw cause;
+        }
+        for (const dirent of dirents) {
+          if (entries.length >= WorkspaceSearchIndex.WORKSPACE_INDEX_MAX_ENTRIES) {
+            truncated = true;
+            break;
+          }
+          const entryPath = current.relativePath
+            ? `${current.relativePath}/${dirent.name}`
+            : dirent.name;
+          if (dirent.isDirectory()) {
+            entries.push({ path: entryPath, kind: "directory" });
+            queue.push({
+              directory: path.join(current.directory, dirent.name),
+              relativePath: entryPath,
+            });
+          } else if (dirent.isFile() || dirent.isSymbolicLink()) {
+            entries.push({ path: entryPath, kind: "file" });
+          }
+        }
+      }
+    };
+
+    yield* Effect.tryPromise({
+      try: () => walk(),
+      catch: (cause) =>
+        new WorkspaceEntriesListFilesError({
+          cwd,
+          reason: cause instanceof Error ? cause.message : String(cause),
+          cause,
+        }),
+    });
+
+    entries.sort((left, right) => left.path.localeCompare(right.path));
+    return { entries, truncated };
+  });
+
   const list: WorkspaceEntries["Service"]["list"] = Effect.fn("WorkspaceEntries.list")(
     function* (input) {
       const normalizedCwd = yield* normalizeWorkspaceRoot(input.cwd);
+      if (input.includeIgnored === true) {
+        return yield* listAllFiles(normalizedCwd);
+      }
       return yield* Effect.gen(function* () {
         const searchIndex = yield* WorkspaceSearchIndex.WorkspaceSearchIndex;
         return yield* searchIndex.list();
