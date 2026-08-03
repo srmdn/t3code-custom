@@ -6,6 +6,14 @@ T3 Code is an "agent harness control surface". It enables control of the agents 
 
 Works with your subscriptions on Claude Code, Codex, Cursor, Grok Build, and OpenCode — plus a fully agentic **DeepSeek** provider (custom fork addition). If they're set up on your computer, T3 Code can control them.
 
+## Screenshots
+
+| Notification settings                                                   | Files panel                                         |
+| ----------------------------------------------------------------------- | --------------------------------------------------- |
+| ![Notification settings](assets/screenshots/notification-settings.webp) | ![Files panel](assets/screenshots/files-panel.webp) |
+
+What's different in this fork? The **Custom Features** below.
+
 ## Custom Features
 
 This fork includes the following additions on top of upstream:
