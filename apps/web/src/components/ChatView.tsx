@@ -112,7 +112,6 @@ import {
   type TurnDiffSummary,
 } from "../types";
 import { useTheme } from "../hooks/useTheme";
-import { useAgentCompletionSound } from "../hooks/useAgentCompletionSound";
 import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
 import { isCommandPaletteOpen } from "../commandPaletteBus";
 import { buildTemporaryWorktreeBranchName } from "@t3tools/shared/git";
@@ -1190,7 +1189,6 @@ function ChatViewContent(props: ChatViewProps) {
         : null,
   );
   const serverThread = useThread(routeThreadRef, { waitForShell: draftThread !== null });
-  useAgentCompletionSound(routeThreadRef);
   const markThreadVisited = useUiStateStore((store) => store.markThreadVisited);
   const activeThreadLastVisitedAt = useUiStateStore(
     (store) => store.threadLastVisitedAtById[routeThreadKey],

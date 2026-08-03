@@ -17,6 +17,7 @@ export const showNotification = DesktopIpc.makeIpcMethod({
     const notification = new Electron.Notification({
       title: input.title,
       body: input.body ?? "",
+      silent: true,
     });
     const electronWindow = yield* ElectronWindow.ElectronWindow;
     const window = yield* electronWindow.currentMainOrFirst;
