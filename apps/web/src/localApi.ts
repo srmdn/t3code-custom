@@ -1,4 +1,4 @@
-import type { ContextMenuItem, LocalApi } from "@t3tools/contracts";
+import type { ContextMenuItem, DesktopNotificationOptions, LocalApi } from "@t3tools/contracts";
 
 import { resetRequestLatencyStateForTests } from "./rpc/requestLatencyState";
 import { showContextMenuFallback } from "./contextMenuFallback";
@@ -8,6 +8,22 @@ let cachedApi: LocalApi | undefined;
 
 function unavailableLocalBackendError(): Error {
   return new Error("Local backend API is unavailable before a backend is paired.");
+}
+
+async function showBrowserNotification(options: DesktopNotificationOptions): Promise<void> {
+  if (typeof window.Notification === "undefined") {
+    return;
+  }
+  if (window.Notification.permission === "denied") {
+    return;
+  }
+  if (window.Notification.permission === "default") {
+    const permission = await window.Notification.requestPermission();
+    if (permission !== "granted") {
+      return;
+    }
+  }
+  new window.Notification(options.title, options.body ? { body: options.body } : undefined);
 }
 
 function createBrowserLocalApi(): LocalApi {
@@ -47,6 +63,14 @@ function createBrowserLocalApi(): LocalApi {
           return window.desktopBridge.showContextMenu(items, position) as Promise<T | null>;
         }
         return showContextMenuFallback(items, position);
+      },
+    },
+    notifications: {
+      show: async (options) => {
+        if (window.desktopBridge) {
+          return window.desktopBridge.showNotification(options);
+        }
+        return showBrowserNotification(options);
       },
     },
     persistence: {
