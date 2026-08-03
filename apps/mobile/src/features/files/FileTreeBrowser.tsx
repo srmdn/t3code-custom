@@ -109,6 +109,7 @@ export function FileTreeBrowser(props: {
   readonly entries: ReadonlyArray<ProjectEntry>;
   readonly error: string | null;
   readonly isPending: boolean;
+  readonly truncated: boolean;
   readonly searchQuery: string;
   readonly selectedPath: string | null;
   readonly onPreviewFile?: (path: string) => void;
@@ -258,6 +259,15 @@ export function FileTreeBrowser(props: {
       contentContainerStyle={{ paddingTop: 8, paddingBottom: 8 }}
       refreshControl={<RefreshControl refreshing={props.isPending} onRefresh={props.onRefresh} />}
       renderItem={renderItem}
+      ListFooterComponent={
+        props.truncated ? (
+          <View className="px-4 py-3">
+            <Text className="text-2xs font-t3-medium text-foreground-tertiary">
+              Showing first 25,000 entries
+            </Text>
+          </View>
+        ) : null
+      }
       ListEmptyComponent={
         <View className="px-4 py-5">
           {props.isPending ? (

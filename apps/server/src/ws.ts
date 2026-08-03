@@ -40,6 +40,7 @@ import {
   type ProjectEntriesFailure,
   type ProjectFileFailure,
   type ProjectFileOperation,
+  ProjectEntryOperationError,
   ProjectListEntriesError,
   ProjectReadFileError,
   ProjectSearchEntriesError,
@@ -193,6 +194,12 @@ function projectEntriesFailureContext(error: WorkspaceEntries.WorkspaceEntriesEr
         normalizedCwd: error.cwd,
         detail: error.reason,
       };
+    case "WorkspaceEntriesListFilesError":
+      return {
+        failure: "workspace_scan_failed",
+        normalizedCwd: error.cwd,
+        detail: error.reason,
+      };
     default:
       return unexpectedCompatibilityError(error);
   }
@@ -235,6 +242,16 @@ function projectFileFailureContext(
         resolvedPath: error.resolvedPath,
         operation: error.operation,
         operationPath: error.operationPath,
+      };
+    case "WorkspaceTargetExistsError":
+      return {
+        failure: "target_exists",
+        resolvedPath: error.resolvedPath,
+      };
+    case "WorkspaceSourceNotFoundError":
+      return {
+        failure: "path_not_found",
+        resolvedPath: error.resolvedPath,
       };
     case "WorkspaceFilePathEscapeError":
       return {
@@ -325,6 +342,9 @@ const RPC_REQUIRED_SCOPE = new Map<string, AuthEnvironmentScope>([
   [WS_METHODS.projectsReadFile, AuthOrchestrationReadScope],
   [WS_METHODS.projectsSearchEntries, AuthOrchestrationReadScope],
   [WS_METHODS.projectsWriteFile, AuthOrchestrationOperateScope],
+  [WS_METHODS.projectsCreateEntry, AuthOrchestrationOperateScope],
+  [WS_METHODS.projectsRenameEntry, AuthOrchestrationOperateScope],
+  [WS_METHODS.projectsDeleteEntry, AuthOrchestrationOperateScope],
   [WS_METHODS.shellOpenInEditor, AuthOrchestrationOperateScope],
   [WS_METHODS.filesystemBrowse, AuthOrchestrationReadScope],
   [WS_METHODS.assetsCreateUrl, AuthOrchestrationReadScope],
@@ -1614,6 +1634,58 @@ const makeWsRpcLayer = (
                     cwd: input.cwd,
                     relativePath: input.relativePath,
                     ...projectFileFailureContext(cause),
+                    cause,
+                  }),
+              ),
+            ),
+            { "rpc.aggregate": "workspace" },
+          ),
+        [WS_METHODS.projectsCreateEntry]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.projectsCreateEntry,
+            workspaceFileSystem.createEntry(input).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new ProjectEntryOperationError({
+                    cwd: input.cwd,
+                    relativePath: input.relativePath,
+                    ...projectFileFailureContext(cause),
+                    operation: input.kind === "directory" ? "create-directory" : "create-file",
+                    cause,
+                  }),
+              ),
+            ),
+            { "rpc.aggregate": "workspace" },
+          ),
+        [WS_METHODS.projectsRenameEntry]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.projectsRenameEntry,
+            workspaceFileSystem.renameEntry(input).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new ProjectEntryOperationError({
+                    cwd: input.cwd,
+                    sourcePath: input.sourcePath,
+                    relativePath: input.targetPath,
+                    ...projectFileFailureContext(cause),
+                    operation: "rename",
+                    cause,
+                  }),
+              ),
+            ),
+            { "rpc.aggregate": "workspace" },
+          ),
+        [WS_METHODS.projectsDeleteEntry]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.projectsDeleteEntry,
+            workspaceFileSystem.deleteEntry(input).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new ProjectEntryOperationError({
+                    cwd: input.cwd,
+                    relativePath: input.relativePath,
+                    ...projectFileFailureContext(cause),
+                    operation: "delete",
                     cause,
                   }),
               ),
