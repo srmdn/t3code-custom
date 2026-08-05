@@ -32,6 +32,7 @@ dist-electron/
 apps/mobile/.showcase/
 artifacts/app-store/screenshots/
 assets/screenshots/_originals/
+native/**/target/
 node_modules/
 .alchemy/
 *.log
