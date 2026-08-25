@@ -38,3 +38,7 @@ node_modules/
 *.log
 .env*
 !.env.example
+
+# Local agent state
+.codex/
+.plans/
