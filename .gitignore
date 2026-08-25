@@ -42,3 +42,4 @@ node_modules/
 # Local agent state
 .codex/
 .plans/
+.local/
