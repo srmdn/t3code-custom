@@ -707,6 +707,74 @@ export const CursorSettings = makeProviderSettingsSchema(
 );
 export type CursorSettings = typeof CursorSettings.Type;
 
+/**
+ * DeepSeek is a first-class tile backed by the Codex harness pointed at its own
+ * home directory (`~/.codex-deepseek`). Only `binaryPath` and `homePath` are
+ * read by the driver; the remaining fields exist for backward compatibility and
+ * stay hidden in the settings form.
+ */
+export const DeepSeekSettings = makeProviderSettingsSchema(
+  {
+    enabled: Schema.Boolean.pipe(
+      Schema.withDecodingDefault(Effect.succeed(true)),
+      Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
+    ),
+    binaryPath: makeBinaryPathSetting("codex").pipe(
+      Schema.annotateKey({
+        title: "Binary path",
+        description: "Path to the Codex CLI binary used to run DeepSeek.",
+        providerSettingsForm: { placeholder: "codex", clearWhenEmpty: "omit" },
+      }),
+    ),
+    homePath: TrimmedString.pipe(
+      Schema.withDecodingDefault(Effect.succeed("")),
+      Schema.annotateKey({
+        title: "DeepSeek home path",
+        description: "Custom home and config directory for the DeepSeek Codex setup.",
+        providerSettingsForm: {
+          placeholder: "~/.codex-deepseek",
+          clearWhenEmpty: "omit",
+        },
+      }),
+    ),
+    apiKey: TrimmedString.pipe(
+      Schema.withDecodingDefault(Effect.succeed("")),
+      Schema.annotateKey({
+        title: "API key",
+        description:
+          "Configured in ~/.codex-deepseek/config.toml (or DEEPSEEK_API_KEY env var); not read by the T3 driver.",
+        providerSettingsForm: {
+          hidden: true,
+        },
+      }),
+    ),
+    baseUrl: TrimmedString.pipe(
+      Schema.withDecodingDefault(Effect.succeed("https://api.deepseek.com")),
+      Schema.annotateKey({
+        title: "Base URL",
+        description: "Configured in ~/.codex-deepseek/config.toml; not read by the T3 driver.",
+        providerSettingsForm: { hidden: true },
+      }),
+    ),
+    model: TrimmedString.pipe(
+      Schema.withDecodingDefault(Effect.succeed("deepseek-flash")),
+      Schema.annotateKey({
+        title: "Default model",
+        description: "Configured in ~/.codex-deepseek/config.toml; not read by the T3 driver.",
+        providerSettingsForm: { hidden: true },
+      }),
+    ),
+    customModels: Schema.Array(CustomModelSetting).pipe(
+      Schema.withDecodingDefault(Effect.succeed([])),
+      Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
+    ),
+  },
+  {
+    order: ["binaryPath", "homePath"],
+  },
+);
+export type DeepSeekSettings = typeof DeepSeekSettings.Type;
+
 export const GrokSettings = makeProviderSettingsSchema(
   {
     // Off by default (like Cursor and OpenCode): the binding is not yet
@@ -1170,6 +1238,7 @@ export const ServerSettings = Schema.Struct({
     codex: CodexSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
     claudeAgent: ClaudeSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
     cursor: CursorSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
+    deepseek: DeepSeekSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
     grok: GrokSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
     opencode: OpenCodeSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
     antigravity: AntigravitySettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
@@ -1322,6 +1391,16 @@ const CursorSettingsPatch = Schema.Struct({
   customModels: Schema.optionalKey(Schema.Array(CustomModelSetting)),
 });
 
+const DeepSeekSettingsPatch = Schema.Struct({
+  enabled: Schema.optionalKey(Schema.Boolean),
+  apiKey: Schema.optionalKey(TrimmedString),
+  baseUrl: Schema.optionalKey(TrimmedString),
+  model: Schema.optionalKey(TrimmedString),
+  binaryPath: Schema.optionalKey(TrimmedString),
+  homePath: Schema.optionalKey(TrimmedString),
+  customModels: Schema.optionalKey(Schema.Array(CustomModelSetting)),
+});
+
 const GrokSettingsPatch = Schema.Struct({
   enabled: Schema.optionalKey(Schema.Boolean),
   binaryPath: Schema.optionalKey(TrimmedString),
@@ -1417,6 +1496,7 @@ export const ServerSettingsPatch = Schema.Struct({
       codex: Schema.optionalKey(CodexSettingsPatch),
       claudeAgent: Schema.optionalKey(ClaudeSettingsPatch),
       cursor: Schema.optionalKey(CursorSettingsPatch),
+      deepseek: Schema.optionalKey(DeepSeekSettingsPatch),
       grok: Schema.optionalKey(GrokSettingsPatch),
       opencode: Schema.optionalKey(OpenCodeSettingsPatch),
       antigravity: Schema.optionalKey(AntigravitySettingsPatch),

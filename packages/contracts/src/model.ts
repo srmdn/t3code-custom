@@ -146,6 +146,7 @@ export type CustomModelSetting = typeof CustomModelSetting.Type;
 const CODEX_DRIVER_KIND = ProviderDriverKind.make("codex");
 const CLAUDE_DRIVER_KIND = ProviderDriverKind.make("claudeAgent");
 const CURSOR_DRIVER_KIND = ProviderDriverKind.make("cursor");
+const DEEPSEEK_DRIVER_KIND = ProviderDriverKind.make("deepseek");
 const GROK_DRIVER_KIND = ProviderDriverKind.make("grok");
 const OPENCODE_DRIVER_KIND = ProviderDriverKind.make("opencode");
 
@@ -170,6 +171,7 @@ export const DEFAULT_MODEL_BY_PROVIDER: Partial<Record<ProviderDriverKind, strin
   [CODEX_DRIVER_KIND]: DEFAULT_MODEL,
   [CLAUDE_DRIVER_KIND]: "claude-fable-5-1",
   [CURSOR_DRIVER_KIND]: "auto",
+  [DEEPSEEK_DRIVER_KIND]: "deepseek-flash",
   // Product slug, not an ACP model id. The Grok adapter treats it as "the session's current model".
   [GROK_DRIVER_KIND]: "grok-build",
   [OPENCODE_DRIVER_KIND]: "openai/gpt-5",
@@ -184,6 +186,7 @@ export const DEFAULT_TEXT_GENERATION_MODEL_BY_PROVIDER: Partial<
   [ProviderDriverKind.make("antigravity")]: ANTIGRAVITY_DEFAULT_MODEL,
   [CLAUDE_DRIVER_KIND]: "claude-haiku-4-5",
   [CURSOR_DRIVER_KIND]: "composer-2",
+  [DEEPSEEK_DRIVER_KIND]: "deepseek-flash",
   [OPENCODE_DRIVER_KIND]: "openai/gpt-5",
 };
 
@@ -210,6 +213,12 @@ export const MODEL_SLUG_ALIASES_BY_PROVIDER: Partial<
     "opus-4.5-thinking": "claude-opus-4-5",
     "opus-4.5": "claude-opus-4-5",
   },
+  [DEEPSEEK_DRIVER_KIND]: {
+    // Older fork builds shipped these slugs; the DeepSeek API only accepts
+    // `deepseek-flash` and `deepseek-v4-pro`.
+    "deepseek-v4-flash": "deepseek-flash",
+    "deepseek-v4.1-flash": "deepseek-flash",
+  },
   [OPENCODE_DRIVER_KIND]: {},
 };
 
@@ -220,6 +229,7 @@ export const PROVIDER_DISPLAY_NAMES: Partial<Record<ProviderDriverKind, string>>
   [CODEX_DRIVER_KIND]: "Codex",
   [CLAUDE_DRIVER_KIND]: "Claude",
   [CURSOR_DRIVER_KIND]: "Cursor",
+  [DEEPSEEK_DRIVER_KIND]: "DeepSeek",
   [GROK_DRIVER_KIND]: "Grok",
   [OPENCODE_DRIVER_KIND]: "OpenCode",
 };

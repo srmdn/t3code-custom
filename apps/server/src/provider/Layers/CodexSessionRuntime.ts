@@ -169,6 +169,7 @@ type CodexThreadItem =
 export interface CodexSessionRuntimeOptions {
   readonly threadId: ThreadId;
   readonly providerInstanceId?: ProviderInstanceId;
+  readonly provider?: ProviderDriverKind;
   readonly binaryPath: string;
   readonly homePath?: string;
   readonly launchArgs?: string;
@@ -489,8 +490,9 @@ function makeCodexServerNotification<M extends CodexRpc.ServerNotificationMethod
 function normalizeCodexModelSlug(
   model: string | undefined | null,
   preferredId?: string,
+  provider: typeof PROVIDER = PROVIDER,
 ): string | undefined {
-  const normalized = normalizeModelSlug(model);
+  const normalized = normalizeModelSlug(model, provider);
   if (!normalized) {
     return undefined;
   }
@@ -1294,6 +1296,7 @@ export const makeCodexSessionRuntime = (
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const runtimeScope = yield* Scope.Scope;
     const crypto = yield* Crypto.Crypto;
+    const provider = options.provider ?? PROVIDER;
     const events = yield* Queue.unbounded<ProviderEvent>();
     const pendingApprovalsRef = yield* Ref.make(new Map<ApprovalRequestId, PendingApproval>());
     const approvalCorrelationsRef = yield* Ref.make(new Map<string, ApprovalCorrelation>());
@@ -1363,7 +1366,7 @@ export const makeCodexSessionRuntime = (
 
     const sessionCreatedAt = yield* nowIso;
     const initialSession = {
-      provider: PROVIDER,
+      provider,
       ...(options.providerInstanceId ? { providerInstanceId: options.providerInstanceId } : {}),
       status: "connecting",
       runtimeMode: options.runtimeMode,
@@ -1382,7 +1385,7 @@ export const makeCodexSessionRuntime = (
         const id = yield* randomUUIDv4("provider-event");
         return yield* offerEvent({
           id: EventId.make(id),
-          provider: PROVIDER,
+          provider,
           ...(options.providerInstanceId ? { providerInstanceId: options.providerInstanceId } : {}),
           createdAt: yield* nowIso,
           ...event,
@@ -2367,7 +2370,7 @@ export const makeCodexSessionRuntime = (
       yield* client.request("initialize", buildCodexInitializeParams());
       yield* client.notify("initialized", undefined);
 
-      const requestedModel = normalizeCodexModelSlug(options.model);
+      const requestedModel = normalizeCodexModelSlug(options.model, undefined, provider);
 
       const opened = yield* openCodexThread({
         client,
@@ -2445,6 +2448,8 @@ export const makeCodexSessionRuntime = (
           }
           const normalizedModel = normalizeCodexModelSlug(
             input.model ?? (yield* Ref.get(sessionRef)).model,
+            undefined,
+            provider,
           );
           const params = yield* buildTurnStartParams({
             threadId: providerThreadId,
