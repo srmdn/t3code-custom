@@ -1,6 +1,5 @@
-import type { ClientSettings } from "@t3tools/contracts/settings";
+import type { ClientSettings, NotificationSoundPreset } from "@t3tools/contracts/settings";
 
-import completionUrl from "./assets/notification-completion.mp3";
 import inputUrl from "./assets/notification-input.mp3";
 
 type NotificationMode = ClientSettings["notificationMode"];
@@ -10,6 +9,29 @@ export const NOTIFICATION_MODE_LABELS = {
   sound: "Sound only",
   "notifications-and-sound": "Notifications with sound",
 } satisfies Record<NotificationMode, string>;
+
+export const NOTIFICATION_SOUND_PRESET_LABELS = {
+  codex: "Codex",
+  ping: "Ping",
+  "classic-ding-dong": "Classic Ding-Dong",
+  hero: "Hero",
+  "rich-double": "Rich Double",
+} satisfies Record<NotificationSoundPreset, string>;
+
+const COMPLETION_SOUND_URLS = {
+  "classic-ding-dong": "/sounds/classic-ding-dong.wav",
+  codex: "/sounds/codex.wav",
+  hero: "/sounds/hero.wav",
+  ping: "/sounds/ping.wav",
+  "rich-double": "/sounds/rich-double.wav",
+} satisfies Record<NotificationSoundPreset, string>;
+
+const DEFAULT_COMPLETION_SOUND_PRESET: NotificationSoundPreset = "codex";
+const DEFAULT_COMPLETION_SOUND_VOLUME = 80;
+
+function clampVolumeGain(volume: number): number {
+  return Math.max(0, Math.min(1, volume / 100));
+}
 
 export function hasNotificationSound(mode: NotificationMode) {
   return mode === "sound" || mode === "notifications-and-sound";
@@ -76,10 +98,19 @@ export function unlockNotificationAudio() {
 export async function playNotificationSound(
   kind: "completion" | "input",
   shouldPlay: () => boolean,
+  options?: {
+    readonly preset?: NotificationSoundPreset;
+    readonly volume?: number;
+  },
 ) {
   if (!audioContext || audioContext.state !== "running") return;
   const context = audioContext;
-  const url = kind === "completion" ? completionUrl : inputUrl;
+  const url =
+    kind === "completion"
+      ? COMPLETION_SOUND_URLS[options?.preset ?? DEFAULT_COMPLETION_SOUND_PRESET]
+      : inputUrl;
+  const gain =
+    kind === "completion" ? clampVolumeGain(options?.volume ?? DEFAULT_COMPLETION_SOUND_VOLUME) : 1;
   try {
     let buffer = buffers.get(url);
     if (!buffer) {
@@ -92,9 +123,29 @@ export async function playNotificationSound(
     if (!shouldPlay() || context.state !== "running") return;
     const source = context.createBufferSource();
     source.buffer = decoded;
-    source.connect(context.destination);
+    if (gain >= 1) {
+      source.connect(context.destination);
+    } else {
+      const gainNode = context.createGain();
+      gainNode.gain.value = gain;
+      source.connect(gainNode);
+      gainNode.connect(context.destination);
+    }
     source.start();
   } catch {
     buffers.delete(url);
   }
+}
+
+/**
+ * Play the selected completion preset on demand (the settings preview button).
+ * Resumes the shared audio context first, since the click is a valid gesture.
+ */
+export async function previewNotificationSound(
+  preset: NotificationSoundPreset,
+  volume: number,
+): Promise<void> {
+  unlockNotificationAudio();
+  await audioContext?.resume().catch(() => undefined);
+  await playNotificationSound("completion", () => true, { preset, volume });
 }

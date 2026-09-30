@@ -222,6 +222,33 @@ export const NotificationMode = Schema.Literals([
 ]);
 export type NotificationMode = typeof NotificationMode.Type;
 
+/**
+ * Completion chime presets. These are fork additions on top of the upstream
+ * notification system: upstream plays a single fixed completion sound, this
+ * list lets the user pick one and preview it. The matching assets live in
+ * `apps/web/public/sounds/`.
+ */
+export const NotificationSoundPreset = Schema.Literals([
+  "classic-ding-dong",
+  "codex",
+  "hero",
+  "ping",
+  "rich-double",
+]);
+export type NotificationSoundPreset = typeof NotificationSoundPreset.Type;
+export const DEFAULT_NOTIFICATION_SOUND_PRESET: NotificationSoundPreset = "codex";
+
+export const MIN_NOTIFICATION_SOUND_VOLUME = 0;
+export const MAX_NOTIFICATION_SOUND_VOLUME = 100;
+export const NotificationSoundVolume = Schema.Int.check(
+  Schema.isBetween({
+    minimum: MIN_NOTIFICATION_SOUND_VOLUME,
+    maximum: MAX_NOTIFICATION_SOUND_VOLUME,
+  }),
+);
+export type NotificationSoundVolume = typeof NotificationSoundVolume.Type;
+export const DEFAULT_NOTIFICATION_SOUND_VOLUME: NotificationSoundVolume = 80;
+
 export const QuitConfirmationMode = Schema.Literals(["direct", "hold", "double-click"]);
 export type QuitConfirmationMode = typeof QuitConfirmationMode.Type;
 const DEFAULT_QUIT_CONFIRMATION_MODE: QuitConfirmationMode = "hold";
@@ -292,6 +319,12 @@ export const ClientSettingsSchema = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed("off" as const)),
   ),
   inAppNotificationsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
+  notificationSoundPreset: NotificationSoundPreset.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_NOTIFICATION_SOUND_PRESET)),
+  ),
+  notificationSoundVolume: NotificationSoundVolume.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_NOTIFICATION_SOUND_VOLUME)),
+  ),
   diffColorScheme: DiffColorScheme.pipe(
     Schema.withDecodingDefault(Effect.succeed("red-green" as const)),
   ),
@@ -1523,6 +1556,8 @@ export type ServerSettingsPatch = typeof ServerSettingsPatch.Type;
 export const ClientSettingsPatch = Schema.Struct({
   notificationMode: Schema.optionalKey(NotificationMode),
   inAppNotificationsEnabled: Schema.optionalKey(Schema.Boolean),
+  notificationSoundPreset: Schema.optionalKey(NotificationSoundPreset),
+  notificationSoundVolume: Schema.optionalKey(NotificationSoundVolume),
   diffColorScheme: Schema.optionalKey(DiffColorScheme),
   loadBalancingEnabled: Schema.optionalKey(Schema.Boolean),
   loadBalancingWeights: Schema.optionalKey(LoadBalancingWeights),

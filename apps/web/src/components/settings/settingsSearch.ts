@@ -244,6 +244,18 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["notification sound alert completion input approval desktop"],
   },
   {
+    id: "notification-sound",
+    title: "Notification sound",
+    to: "/settings/general",
+    searchTerms: ["sound chime preset ding preview completion"],
+  },
+  {
+    id: "notification-sound-volume",
+    title: "Notification sound volume",
+    to: "/settings/general",
+    searchTerms: ["sound volume loudness chime completion"],
+  },
+  {
     id: "in-app-notifications",
     title: "In-app notifications",
     to: "/settings/general",

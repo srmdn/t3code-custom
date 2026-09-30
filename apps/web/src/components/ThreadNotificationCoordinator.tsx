@@ -140,8 +140,14 @@ function EnvironmentNotifications({
               ? "Thread failed"
               : "Input needed";
       if (hasNotificationSound(mode)) {
-        void playNotificationSound(kind, () =>
-          hasNotificationSound(getClientSettings().notificationMode),
+        const settings = getClientSettings();
+        void playNotificationSound(
+          kind,
+          () => hasNotificationSound(getClientSettings().notificationMode),
+          {
+            preset: settings.notificationSoundPreset,
+            volume: settings.notificationSoundVolume,
+          },
         );
       }
       if (
